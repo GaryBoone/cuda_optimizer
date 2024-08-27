@@ -7,6 +7,8 @@
 #include "errors.h"
 
 class AdaptiveSampler {
+  friend class AdaptiveSamplerTest; // Make the test class a friend
+
 private:
   double alpha = 0.0;
   int num_samples = 0;

@@ -84,6 +84,7 @@ void hardware_info() {
               << std::endl;
   }
 }
+
 void repeat_until(double goal_ci, kernelFuncPtr kFunc, int numBlocks,
                   int blockSize, int N, float *x, float *y) {
   AdaptiveSampler stats;
