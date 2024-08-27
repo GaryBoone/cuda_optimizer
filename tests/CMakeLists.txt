@@ -7,11 +7,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(catch2)
 
-# Setup testing executable
-add_executable(test_app test_adaptive_sampler.cpp ../src/adaptive_sampler.cpp)
-target_link_libraries(test_app PRIVATE Catch2::Catch2 expected_interface)
+list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/contrib")
 
-# Register tests
-include(CTest)
-# include(Catch)
-# catch_discover_tests(test_app)
+add_executable(test_app test_adaptive_sampler.cpp)
+target_link_libraries(test_app PRIVATE Catch2::Catch2 core_lib)
+
+include(Catch)
+catch_discover_tests(test_app)
+
+# ctest must be run from the build directory. So from the project directory,
+# $ (cd build; ctest)
