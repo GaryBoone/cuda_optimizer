@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <math.h>
@@ -12,14 +13,16 @@
 
 typedef void (*kernelFuncPtr)(int, float *, float *);
 
-__global__ void add(int n, float *x, float *y) {
+// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
+__global__ void add_with_stride(int n, float *x, float *y) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
   for (int i = index; i < n; i += stride)
     y[i] = x[i] + y[i];
 }
 
-__global__ void add2(int n, float *x, float *y) {
+// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
+__global__ void add_no_stride(int n, float *x, float *y) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n)
     y[i] = x[i] + y[i];
@@ -31,6 +34,44 @@ __global__ void add3(int n, float *x, float *y) {
        i += blockDim.x * gridDim.x) {
     y[i] = x[i] + y[i];
   }
+}
+
+std::string formatNumber(double number) {
+  struct Scale {
+    double divisor;
+    char suffix;
+  };
+
+  // Define the scales and their corresponding suffixes
+  const Scale scales[] = {
+      {1e24, 'Y'}, {1e21, 'Z'}, {1e18, 'E'}, {1e15, 'P'}, {1e12, 'T'},
+      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '} // No suffix for numbers
+                                                      // less than 1000
+  };
+
+  // Determine the appropriate scale
+  Scale selectedScale = {
+      1, ' '}; // Default to no scaling if number is less than 1000
+  for (const auto &scale : scales) {
+    if (number >= scale.divisor) {
+      selectedScale = scale;
+      break;
+    }
+  }
+
+  // Scale the number and format it
+  double scaledNumber = number / selectedScale.divisor;
+  char formattedString[50]; // Buffer to hold the formatted string
+
+  // Use snprintf for formatting to control the precision and size
+  if (selectedScale.suffix == ' ') {
+    snprintf(formattedString, sizeof(formattedString), "%.2f", scaledNumber);
+  } else {
+    snprintf(formattedString, sizeof(formattedString), "%.2f%c", scaledNumber,
+             selectedScale.suffix);
+  }
+
+  return std::string(formattedString);
 }
 
 void check_result(float *y,
@@ -51,7 +92,7 @@ float timeKernel(kernelFuncPtr kFunc, int numBlocks, int blockSize, int N,
   kFunc<<<numBlocks, blockSize>>>(N, x, y);
   timer.stop();
 
-  // Wait for GPU to finish before accessing on host
+  // Wait for GPU to finish before accessing on host.
   cudaDeviceSynchronize();
 
   return timer.elapsedMilliseconds();
@@ -87,7 +128,7 @@ void hardware_info() {
 
 void repeat_until(double goal_ci, kernelFuncPtr kFunc, int numBlocks,
                   int blockSize, int N, float *x, float *y) {
-  AdaptiveSampler stats;
+  AdaptiveSampler stats(0.15);
   bool skip_first = true;
   while (stats.should_continue()) {
     // Initialize x and y arrays on the host.
@@ -105,9 +146,16 @@ void repeat_until(double goal_ci, kernelFuncPtr kFunc, int numBlocks,
     stats.update(time);
   }
 
-  if (auto est = stats.get_estimate())
+  if (auto est = stats.get_estimate()) {
     std::cout << "  elapsed time: " << *est << " ms, avg over "
               << stats.get_num_samples() << " runs" << std::endl;
+    if (*est != 0.0) {
+      auto time_in_seconds = *est / 1000.0;
+      auto bandwidth = 3 * N * sizeof(float) / time_in_seconds;
+      std::cout << "  bandwidth: " << formatNumber(bandwidth) << "B/s"
+                << std::endl;
+    }
+  }
 }
 
 int main(void) {
@@ -124,10 +172,10 @@ int main(void) {
   int blockSize = 256;
   int numBlocks = (N + blockSize - 1) / blockSize;
 
-  std::cout << "> add(): " << std::endl;
-  repeat_until(0.005, add, numBlocks, blockSize, N, x, y);
-  std::cout << "> add2(): " << std::endl;
-  repeat_until(0.005, add2, numBlocks, blockSize, N, x, y);
+  std::cout << "> add_with_stride(): " << std::endl;
+  repeat_until(0.005, add_with_stride, numBlocks, blockSize, N, x, y);
+  std::cout << "> add_no_stride(): " << std::endl;
+  repeat_until(0.005, add_no_stride, numBlocks, blockSize, N, x, y);
   std::cout << "> add3(): " << std::endl;
   repeat_until(0.005, add3, numBlocks, blockSize, N, x, y);
 

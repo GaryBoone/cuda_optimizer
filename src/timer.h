@@ -24,6 +24,9 @@ public:
 
   void synchronize() { gpuErrchk(cudaEventSynchronize(event)); }
 
+  // Computes the elapsed time between two events (in milliseconds with a
+  // resolution of around 0.5 microseconds), according to:
+  // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html#group__CUDART__EVENT_1g40159125411db92c835edb46a0989cd6
   float elapsedTime(const CudaEvent &other) {
     float time;
     gpuErrchk(cudaEventElapsedTime(&time, event, other.event));
