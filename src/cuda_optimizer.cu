@@ -4,12 +4,16 @@
 #include <math.h>
 
 #include "adaptive_sampler.h"
+#include "format_number.h"
 #include "timer.h"
 
-// To run:
+// Build:
 // $ cmake -B build -S .
 // $ cmake --build build
-// old: $ nvcc add.cu stats.cpp -o add_cuda && ./add_cuda
+// Run:
+// $ ./build/src/cuda_optimizer
+// Test:
+// $ ./build/tests/test_app
 
 typedef void (*kernelFuncPtr)(int, float *, float *);
 
@@ -34,44 +38,6 @@ __global__ void add3(int n, float *x, float *y) {
        i += blockDim.x * gridDim.x) {
     y[i] = x[i] + y[i];
   }
-}
-
-std::string formatNumber(double number) {
-  struct Scale {
-    double divisor;
-    char suffix;
-  };
-
-  // Define the scales and their corresponding suffixes
-  const Scale scales[] = {
-      {1e24, 'Y'}, {1e21, 'Z'}, {1e18, 'E'}, {1e15, 'P'}, {1e12, 'T'},
-      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '} // No suffix for numbers
-                                                      // less than 1000
-  };
-
-  // Determine the appropriate scale
-  Scale selectedScale = {
-      1, ' '}; // Default to no scaling if number is less than 1000
-  for (const auto &scale : scales) {
-    if (number >= scale.divisor) {
-      selectedScale = scale;
-      break;
-    }
-  }
-
-  // Scale the number and format it
-  double scaledNumber = number / selectedScale.divisor;
-  char formattedString[50]; // Buffer to hold the formatted string
-
-  // Use snprintf for formatting to control the precision and size
-  if (selectedScale.suffix == ' ') {
-    snprintf(formattedString, sizeof(formattedString), "%.2f", scaledNumber);
-  } else {
-    snprintf(formattedString, sizeof(formattedString), "%.2f%c", scaledNumber,
-             selectedScale.suffix);
-  }
-
-  return std::string(formattedString);
 }
 
 void check_result(float *y,
