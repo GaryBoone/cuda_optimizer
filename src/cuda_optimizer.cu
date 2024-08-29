@@ -1,7 +1,6 @@
-#include <cmath>
 #include <cuda_runtime.h>
+
 #include <iostream>
-#include <math.h>
 
 #include "adaptive_sampler.h"
 #include "format_number.h"
@@ -69,7 +68,7 @@ float TimeKernel(kernelFuncPtr kFunc, int num_blocks, int block_size, int n,
 
 void HardwareInfo() {
   int num_devices = 0;
-  cudaGetDeviceCount(&num_devices); // Get the number of devices
+  cudaGetDeviceCount(&num_devices);  // Get the number of devices
   if (num_devices == 0) {
     std::cout << "No CUDA devices found." << std::endl;
     return;
@@ -100,7 +99,6 @@ void RepeatUntil(double goal_rp, kernelFuncPtr kernel_fn, int num_blocks,
   AdaptiveSampler stats(goal_rp);
   bool skip_first = true;
   while (stats.ShouldContinue()) {
-
     // Initialize x and y arrays on the host.
     for (int j = 0; j < n; j++) {
       x[j] = 1.0f;

@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "tl/expected.hpp"
@@ -16,7 +17,7 @@ struct ErrorInfo {
 
   std::string message;
 
-  ErrorInfo(ErrorType t) : error_type(t), message("unknown error") {}
+  explicit ErrorInfo(ErrorType t) : error_type(t), message("unknown error") {}
 
   ErrorInfo(ErrorType t, std::string m)
       : error_type(t), message(std::move(m)) {}

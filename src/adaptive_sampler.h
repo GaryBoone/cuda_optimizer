@@ -4,19 +4,19 @@
 #include <utility>
 #include <vector>
 
-#include "errors.h"
+#include "./errors.h"
 
 class AdaptiveSampler {
-  friend class AdaptiveSamplerTest; // Make the test class a friend
+  friend class AdaptiveSamplerTest;
 
-private:
+ private:
   double alpha_ = 0.0;
   int num_samples_ = 0;
   double relative_precision_;
 
   ExpectedDouble TwoTailed95PercentStudentsT(int df);
 
-public:
+ public:
   explicit AdaptiveSampler(double rp = 0.30) : relative_precision_(rp) {}
 
   void Update(double x);

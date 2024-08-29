@@ -1,20 +1,20 @@
 #include <cuda_runtime.h>
+
 #include <iostream>
 
-#define gpuErrchk(ans)                                                         \
+#define gpuErrchk(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
                       bool abort = true) {
   if (code != cudaSuccess) {
     std::cerr << "GPUassert: " << cudaGetErrorString(code) << " " << file << " "
               << line << std::endl;
-    if (abort)
-      exit(code);
+    if (abort) exit(code);
   }
 }
 
 class CudaEvent {
-public:
+ public:
   CudaEvent() { gpuErrchk(cudaEventCreate(&event_)); }
   ~CudaEvent() { gpuErrchk(cudaEventDestroy(event_)); }
 
@@ -33,12 +33,12 @@ public:
     return time;
   }
 
-private:
+ private:
   cudaEvent_t event_;
 };
 
 class CudaTimer {
-public:
+ public:
   void Start() { start_event_.Record(); }
 
   void Stop() {
@@ -48,6 +48,6 @@ public:
 
   float ElapsedMilliseconds() { return start_event_.ElapsedTime(stop_event_); }
 
-private:
+ private:
   CudaEvent start_event_, stop_event_;
 };

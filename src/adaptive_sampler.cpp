@@ -1,10 +1,8 @@
-#include <chrono>
+#include "./adaptive_sampler.h"
+
 #include <cmath>
 #include <iostream>
 #include <random>
-#include <thread>
-
-#include "adaptive_sampler.h"
 
 // Calculate the student's t distribution value for the 2-sided 95% confidence
 // interval for the given degrees of freedom. This function assumes that the
@@ -55,7 +53,6 @@ void AdaptiveSampler::Update(double x) {
   num_samples_++;
 }
 
-// TODO: handle num_samples==0;
 ExpectedDouble AdaptiveSampler::EstimatedMean() {
   if (0 == num_samples_) {
     return tl::make_unexpected(

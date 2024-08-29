@@ -13,7 +13,7 @@ inline std::string FormatNumber(double number) {
   // Define the scales and their corresponding prefixes
   const Scale scales[] = {
       {1e24, 'Y'}, {1e21, 'Z'}, {1e18, 'E'}, {1e15, 'P'}, {1e12, 'T'},
-      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '} // No prefix if <  1000.
+      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '}  // No prefix if <  1000.
   };
 
   // Determine the appropriate scale
@@ -27,7 +27,7 @@ inline std::string FormatNumber(double number) {
 
   // Scale the number and format it
   double scaled_number = number / selected_scale.divisor;
-  char formatted_string[50]; // Buffer to hold the formatted string
+  char formatted_string[50];  // Buffer to hold the formatted string
 
   // Use snprintf for formatting to control the precision and size
   if (selected_scale.prefix == ' ') {
