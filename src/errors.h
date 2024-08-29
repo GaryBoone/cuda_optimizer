@@ -8,10 +8,10 @@
 
 struct ErrorInfo {
   enum ErrorType {
-    None,
-    InvalidDegreesOfFreedom,
-    TooFewSamples,
-    DivisionByZero
+    kNone,
+    kInvalidDegreesOfFreedom,
+    kTooFewSamples,
+    kDivisionByZero
   } error_type;
 
   std::string message;

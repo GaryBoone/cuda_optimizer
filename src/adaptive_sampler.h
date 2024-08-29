@@ -10,17 +10,17 @@ class AdaptiveSampler {
   friend class AdaptiveSamplerTest; // Make the test class a friend
 
 private:
-  double alpha = 0.0;
-  int num_samples = 0;
-  double relative_precision;
+  double alpha_ = 0.0;
+  int num_samples_ = 0;
+  double relative_precision_;
 
-  ExpectedDouble two_tailed_95_students_t(int df);
+  ExpectedDouble TwoTailed95PercentStudentsT(int df);
 
 public:
-  explicit AdaptiveSampler(double rp = 0.30) : relative_precision(rp) {}
+  explicit AdaptiveSampler(double rp = 0.30) : relative_precision_(rp) {}
 
-  void update(double x);
-  bool should_continue();
-  ExpectedDouble get_estimate();
-  int get_num_samples() { return num_samples; }
+  void Update(double x);
+  bool ShouldContinue();
+  ExpectedDouble EstimatedMean();
+  int NumSamples() { return num_samples_; }
 };

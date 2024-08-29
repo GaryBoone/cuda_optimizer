@@ -15,39 +15,39 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 
 class CudaEvent {
 public:
-  CudaEvent() { gpuErrchk(cudaEventCreate(&event)); }
-  ~CudaEvent() { gpuErrchk(cudaEventDestroy(event)); }
+  CudaEvent() { gpuErrchk(cudaEventCreate(&event_)); }
+  ~CudaEvent() { gpuErrchk(cudaEventDestroy(event_)); }
 
-  void record(cudaStream_t stream = 0) {
-    gpuErrchk(cudaEventRecord(event, stream));
+  void Record(cudaStream_t stream = 0) {
+    gpuErrchk(cudaEventRecord(event_, stream));
   }
 
-  void synchronize() { gpuErrchk(cudaEventSynchronize(event)); }
+  void Synchronize() { gpuErrchk(cudaEventSynchronize(event_)); }
 
   // Computes the elapsed time between two events (in milliseconds with a
   // resolution of around 0.5 microseconds), according to:
   // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EVENT.html#group__CUDART__EVENT_1g40159125411db92c835edb46a0989cd6
-  float elapsedTime(const CudaEvent &other) {
+  float ElapsedTime(const CudaEvent &other) {
     float time;
-    gpuErrchk(cudaEventElapsedTime(&time, event, other.event));
+    gpuErrchk(cudaEventElapsedTime(&time, event_, other.event_));
     return time;
   }
 
 private:
-  cudaEvent_t event;
+  cudaEvent_t event_;
 };
 
 class CudaTimer {
 public:
-  void start() { startEvent.record(); }
+  void Start() { start_event_.Record(); }
 
-  void stop() {
-    stopEvent.record();
-    stopEvent.synchronize();
+  void Stop() {
+    stop_event_.Record();
+    stop_event_.Synchronize();
   }
 
-  float elapsedMilliseconds() { return startEvent.elapsedTime(stopEvent); }
+  float ElapsedMilliseconds() { return start_event_.ElapsedTime(stop_event_); }
 
 private:
-  CudaEvent startEvent, stopEvent;
+  CudaEvent start_event_, stop_event_;
 };

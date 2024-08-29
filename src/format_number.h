@@ -4,7 +4,7 @@
 
 // Return the given value as a string formatted with SI prefixes. Values
 // will be formatted with two decimal places.
-inline std::string formatNumber(double number) {
+inline std::string FormatNumber(double number) {
   struct Scale {
     double divisor;
     char prefix;
@@ -17,25 +17,25 @@ inline std::string formatNumber(double number) {
   };
 
   // Determine the appropriate scale
-  Scale selectedScale = {1, ' '};
+  Scale selected_scale = {1, ' '};
   for (const auto &scale : scales) {
     if (number >= scale.divisor) {
-      selectedScale = scale;
+      selected_scale = scale;
       break;
     }
   }
 
   // Scale the number and format it
-  double scaledNumber = number / selectedScale.divisor;
-  char formattedString[50]; // Buffer to hold the formatted string
+  double scaled_number = number / selected_scale.divisor;
+  char formatted_string[50]; // Buffer to hold the formatted string
 
   // Use snprintf for formatting to control the precision and size
-  if (selectedScale.prefix == ' ') {
-    snprintf(formattedString, sizeof(formattedString), "%.2f", scaledNumber);
+  if (selected_scale.prefix == ' ') {
+    snprintf(formatted_string, sizeof(formatted_string), "%.2f", scaled_number);
   } else {
-    snprintf(formattedString, sizeof(formattedString), "%.2f%c", scaledNumber,
-             selectedScale.prefix);
+    snprintf(formatted_string, sizeof(formatted_string), "%.2f%c",
+             scaled_number, selected_scale.prefix);
   }
 
-  return std::string(formattedString);
+  return std::string(formatted_string);
 }

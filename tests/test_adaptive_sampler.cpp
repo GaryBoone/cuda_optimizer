@@ -7,17 +7,17 @@ class AdaptiveSamplerTest {
 public:
   static ExpectedDouble
   invoke_two_tailed_95_students_t(AdaptiveSampler &sampler, int df) {
-    return sampler.two_tailed_95_students_t(df);
+    return sampler.TwoTailed95PercentStudentsT(df);
   }
 };
 
 TEST_CASE("AdaptiveSampler initialization", "[AdaptiveSampler]") {
   AdaptiveSampler as;
-  REQUIRE(as.should_continue());
-  REQUIRE(as.get_num_samples() == 0);
-  auto result = as.get_estimate();
+  REQUIRE(as.ShouldContinue());
+  REQUIRE(as.NumSamples() == 0);
+  auto result = as.EstimatedMean();
   REQUIRE_FALSE(result.has_value());
-  REQUIRE(result.error().error_type == ErrorInfo::TooFewSamples);
+  REQUIRE(result.error().error_type == ErrorInfo::kTooFewSamples);
   REQUIRE(result.error().message ==
           "number of samples must be greater than zero");
 }
@@ -26,34 +26,34 @@ TEST_CASE("AdaptiveSampler updating samples", "[AdaptiveSampler]") {
   AdaptiveSampler as;
 
   SECTION("One samples") {
-    as.update(1.0);
+    as.Update(1.0);
 
-    REQUIRE(as.should_continue());
-    REQUIRE(as.get_num_samples() == 1);
-    auto result = as.get_estimate();
+    REQUIRE(as.ShouldContinue());
+    REQUIRE(as.NumSamples() == 1);
+    auto result = as.EstimatedMean();
     REQUIRE(result.has_value());
     REQUIRE_THAT(result.value(), Catch::Matchers::WithinAbs(1.0, 1e-10));
   }
 
   SECTION("Two samples") {
-    as.update(1.4);
-    as.update(1.2);
+    as.Update(1.4);
+    as.Update(1.2);
 
-    REQUIRE(as.should_continue());
-    REQUIRE(as.get_num_samples() == 2);
-    auto result = as.get_estimate();
+    REQUIRE(as.ShouldContinue());
+    REQUIRE(as.NumSamples() == 2);
+    auto result = as.EstimatedMean();
     REQUIRE(result.has_value());
     REQUIRE_THAT(result.value(), Catch::Matchers::WithinAbs(1.3, 1e-10));
   }
 
   SECTION("Three samples") {
-    as.update(1.4);
-    as.update(1.2);
-    as.update(2.2);
+    as.Update(1.4);
+    as.Update(1.2);
+    as.Update(2.2);
 
-    REQUIRE(as.should_continue());
-    REQUIRE(as.get_num_samples() == 3);
-    auto result = as.get_estimate();
+    REQUIRE(as.ShouldContinue());
+    REQUIRE(as.NumSamples() == 3);
+    auto result = as.EstimatedMean();
     REQUIRE(result.has_value());
     REQUIRE_THAT(result.value(), Catch::Matchers::WithinAbs(1.6, 1e-10));
   }
@@ -65,7 +65,7 @@ TEST_CASE("two_tailed_95_students_t tests", "[AdaptiveSampler]") {
   SECTION("Degrees of freedom is 0") {
     auto result =
         AdaptiveSamplerTest::invoke_two_tailed_95_students_t(sampler, 0);
-    REQUIRE(result.error().error_type == ErrorInfo::InvalidDegreesOfFreedom);
+    REQUIRE(result.error().error_type == ErrorInfo::kInvalidDegreesOfFreedom);
   }
 
   SECTION("Degrees of freedom is 1") {
@@ -114,33 +114,33 @@ TEST_CASE("two_tailed_95_students_t tests", "[AdaptiveSampler]") {
 TEST_CASE("AdaptiveSampler should continue", "[AdaptiveSampler]") {
   AdaptiveSampler as;
 
-  SECTION("No samples") { REQUIRE(as.should_continue()); }
+  SECTION("No samples") { REQUIRE(as.ShouldContinue()); }
   SECTION("One samples") {
-    as.update(1.0);
-    REQUIRE(as.should_continue());
+    as.Update(1.0);
+    REQUIRE(as.ShouldContinue());
   }
   SECTION("Two samples") {
-    as.update(1.0);
-    as.update(12.0);
-    REQUIRE(as.should_continue());
+    as.Update(1.0);
+    as.Update(12.0);
+    REQUIRE(as.ShouldContinue());
   }
   SECTION("Three samples") {
-    as.update(1.0);
-    as.update(12.0);
-    as.update(4.0);
-    REQUIRE(as.should_continue());
+    as.Update(1.0);
+    as.Update(12.0);
+    as.Update(4.0);
+    REQUIRE(as.ShouldContinue());
   }
   SECTION("52 samples is enough") {
-    as.update(6.11);
-    as.update(6.09);
+    as.Update(6.11);
+    as.Update(6.09);
     for (int i = 0; i < 40; i++) {
-      as.update(6.10);
+      as.Update(6.10);
     }
-    REQUIRE(as.should_continue());
+    REQUIRE(as.ShouldContinue());
 
     for (int i = 0; i < 10; i++) {
-      as.update(6.10);
+      as.Update(6.10);
     }
-    REQUIRE(!as.should_continue());
+    REQUIRE(!as.ShouldContinue());
   }
 }
