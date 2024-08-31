@@ -8,7 +8,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(catch2)
 list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/contrib")
 
-add_executable(test_app test_adaptive_sampler.cpp test_format_number.cpp)
+add_executable(test_app test_adaptive_sampler.cpp test_reporter.cpp)
 target_link_libraries(test_app PRIVATE Catch2::Catch2WithMain core_lib)
 
 include(CTest)

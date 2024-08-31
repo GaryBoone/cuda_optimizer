@@ -1,9 +1,11 @@
 #include <cuda_runtime.h>
 
+#include <iomanip>
 #include <iostream>
+#include <string>
 
 #include "adaptive_sampler.h"
-#include "format_number.h"
+#include "reporter.h"
 #include "timer.h"
 
 // Build:
@@ -43,14 +45,24 @@ __global__ void Add3(int n, float *x, float *y) {
   }
 }
 
-void CheckResult(float *y, int N) {
-  float max_error = 0.0f;
-  for (int i = 0; i < N; i++) {
+int CheckResult(float *y, int n) {
+  int num_errors = 0;
+  double max_error = 0.0;
+
+  for (int i = 0; i < n; i++) {
+    if (fabs(y[i] - 3.0f) > 1e-6) {
+      num_errors++;
+    }
     max_error = fmax(max_error, fabs(y[i] - 3.0f));
   }
-  if (max_error > 0.0) {
-    std::cout << "  max error: " << max_error << std::endl;
+
+  if (num_errors > 0) {
+    std::cout << "  number of errors: " << num_errors;
   }
+  if (max_error > 0.0) {
+    std::cout << ",  max error: " << max_error;
+  }
+  return num_errors;
 }
 
 float TimeKernel(kernelFuncPtr kFunc, int num_blocks, int block_size, int n,
@@ -66,12 +78,13 @@ float TimeKernel(kernelFuncPtr kFunc, int num_blocks, int block_size, int n,
   return timer.ElapsedMilliseconds();
 }
 
-void HardwareInfo() {
+int HardwareInfo() {
+  int max_threads_per_SM = 0;
   int num_devices = 0;
   cudaGetDeviceCount(&num_devices);  // Get the number of devices
   if (num_devices == 0) {
     std::cout << "No CUDA devices found." << std::endl;
-    return;
+    return 0;
   }
 
   std::cout << "Number of CUDA devices: " << num_devices << std::endl;
@@ -87,15 +100,20 @@ void HardwareInfo() {
               << std::endl;
     std::cout << "  Maximum threads per SM: "
               << props.maxThreadsPerMultiProcessor << std::endl;
+    max_threads_per_SM = props.maxThreadsPerMultiProcessor;
     std::cout << "  Amount of shared memory per SM: "
               << props.sharedMemPerMultiprocessor << " bytes" << std::endl;
     std::cout << "  Number of registers per SM: " << props.regsPerMultiprocessor
               << std::endl;
   }
+  return max_threads_per_SM;
 }
 
-void RepeatUntil(double goal_rp, kernelFuncPtr kernel_fn, int num_blocks,
-                 int block_size, int n, float *x, float *y) {
+tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double goal_rp,
+                                                     kernelFuncPtr kernel_fn,
+                                                     int num_blocks,
+                                                     int block_size, int n,
+                                                     float *x, float *y) {
   AdaptiveSampler stats(goal_rp);
   bool skip_first = true;
   while (stats.ShouldContinue()) {
@@ -107,7 +125,11 @@ void RepeatUntil(double goal_rp, kernelFuncPtr kernel_fn, int num_blocks,
 
     float time = TimeKernel(kernel_fn, num_blocks, block_size, n, x, y);
 
-    CheckResult(y, n);
+    if (0 != CheckResult(y, n)) {
+      return tl::make_unexpected(ErrorInfo(ErrorInfo::kUnexpectedKernelResult,
+                                           "errors in kernel results"));
+    }
+
     // Don't include the first run in the averages to ignore loading effects.
     if (skip_first) {
       skip_first = false;
@@ -115,43 +137,71 @@ void RepeatUntil(double goal_rp, kernelFuncPtr kernel_fn, int num_blocks,
     }
     stats.Update(time);
   }
-
-  if (auto est = stats.EstimatedMean()) {
-    std::cout << "  elapsed time: " << *est << " ms, avg over "
-              << stats.NumSamples() << " runs" << std::endl;
-    if (*est != 0.0) {
-      auto time_in_seconds = *est / 1000.0;
-      auto bandwidth = 3 * n * sizeof(float) / time_in_seconds;
-      std::cout << "  bandwidth: " << FormatNumber(bandwidth) << "B/s"
-                << std::endl;
-    }
-  }
+  return stats;
 }
 
-int main(void) {
-  HardwareInfo();
-
-  int N = 1 << 20;
+void RunStrideVarations(int max_threads_per_SM) {
+  int N = 1 << 20;  // Run kernel on 1M elements on the GPU.
   float *x, *y;
 
   // Allocate Unified Memory – accessible from CPU or GPU.
   cudaMallocManaged(&x, N * sizeof(float));
   cudaMallocManaged(&y, N * sizeof(float));
 
-  // Run kernel on 1M elements on the GPU.
-  int blockSize = 256;
-  int numBlocks = (N + blockSize - 1) / blockSize;
+  // std::cout << "Running variation with " << numBlocks << " blocks of size "
+  //           << blockSize << " and stride " << stride << std::endl;
+  // RepeatUntil(0.3, AddWithStride, numBlocks, blockSize, N, x, y);
 
-  std::cout << "> add_with_stride(): " << std::endl;
-  RepeatUntil(0.15, AddWithStride, numBlocks, blockSize, N, x, y);
-  std::cout << "> add_no_stride(): " << std::endl;
-  RepeatUntil(0.15, AddWithoutStride, numBlocks, blockSize, N, x, y);
-  std::cout << "> add3(): " << std::endl;
-  RepeatUntil(0.15, Add3, numBlocks, blockSize, N, x, y);
+  float time_at_max_bandwidth = 1e20;
+  float max_bandwidth = 0.0;
+  int max_bw_block_size = 0;
+  int max_bw_num_blocks = 0;
+
+  for (int blockSize = 32; blockSize <= max_threads_per_SM; blockSize += 32) {
+    for (int f = 1; f <= (2 << 19); f *= 2) {
+      int numBlocks = (N + f - 1) / f;
+      // int numBlocks = (N + f * blockSize - 1) / (f * blockSize);
+      Reporter::PrintResultsHeader(numBlocks, blockSize);
+      auto stats_res =
+          RepeatUntil(0.3, AddWithStride, numBlocks, blockSize, N, x, y);
+
+      if (!stats_res) {
+        std::cout << " [failed]" << std::endl;
+        continue;
+      }
+      auto mean_res = stats_res->EstimatedMean();
+      if (!mean_res || 0.0 == *mean_res) {
+        std::cout << " [failed, mean==0.0!]" << std::endl;
+        continue;
+      }
+      auto time_in_seconds = *mean_res / 1000.0;
+      auto bandwidth = 3 * N * sizeof(float) / time_in_seconds;
+      Reporter::PrintResultsData(bandwidth, *mean_res, stats_res->NumSamples());
+      if (bandwidth > max_bandwidth) {
+        time_at_max_bandwidth = *mean_res;
+        max_bandwidth = bandwidth;
+        max_bw_num_blocks = numBlocks;
+        max_bw_block_size = blockSize;
+      }
+    }
+    Reporter::PrintResults("current best: ", max_bw_num_blocks,
+                           max_bw_block_size, max_bandwidth,
+                           time_at_max_bandwidth);
+  }
+
+  Reporter::PrintResults("==> final best: ", max_bw_num_blocks,
+                         max_bw_block_size, max_bandwidth,
+                         time_at_max_bandwidth);
 
   // Free memory.
   cudaFree(x);
   cudaFree(y);
+}
+
+int main(void) {
+  auto max_threads_per_SM = HardwareInfo();
+
+  RunStrideVarations(max_threads_per_SM);
 
   return 0;
 }

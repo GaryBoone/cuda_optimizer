@@ -1,22 +1,21 @@
-#pragma once
 
+#include "./reporter.h"
+
+#include <iostream>
+#include <locale>
 #include <string>
 
-// Return the given value as a string formatted with SI prefixes. Values
-// will be formatted with two decimal places.
-inline std::string FormatNumber(double number) {
+std::string Reporter::FormatToSI(double number) {
   struct Scale {
     double divisor;
     char prefix;
   };
 
-  // Define the scales and their corresponding prefixes
   const Scale scales[] = {
       {1e24, 'Y'}, {1e21, 'Z'}, {1e18, 'E'}, {1e15, 'P'}, {1e12, 'T'},
-      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '}  // No prefix if <  1000.
+      {1e9, 'G'},  {1e6, 'M'},  {1e3, 'K'},  {1, ' '}  // No prefix if < 1000.
   };
 
-  // Determine the appropriate scale
   Scale selected_scale = {1, ' '};
   for (const auto &scale : scales) {
     if (number >= scale.divisor) {
@@ -25,11 +24,9 @@ inline std::string FormatNumber(double number) {
     }
   }
 
-  // Scale the number and format it
   double scaled_number = number / selected_scale.divisor;
-  char formatted_string[50];  // Buffer to hold the formatted string
+  char formatted_string[50];
 
-  // Use snprintf for formatting to control the precision and size
   if (selected_scale.prefix == ' ') {
     snprintf(formatted_string, sizeof(formatted_string), "%.2f", scaled_number);
   } else {
@@ -38,4 +35,12 @@ inline std::string FormatNumber(double number) {
   }
 
   return std::string(formatted_string);
+}
+
+std::string Reporter::FormatWithCommas(int n) {
+  std::string result = std::to_string(n);
+  for (int i = result.size() - 3; i > 0; i -= 3) {
+    result.insert(i, ",");
+  }
+  return result;
 }

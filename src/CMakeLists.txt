@@ -1,11 +1,16 @@
 
 ################################################################################
 # CUDA
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_ARCHITECTURES OFF) # No architecture restrictions.
 
-find_package(CUDA REQUIRED)  # Find the CUDA toolkit
+enable_language(CUDA)
 include_directories(${CUDA_INCLUDE_DIRS})
+
+################################################################################
+# Show the full compiler flags as they're run.
+# set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "ON" FORCE)
 
 ################################################################################
 # `expected` header-only library
@@ -20,7 +25,7 @@ FetchContent_MakeAvailable(expected)
 
 ################################################################################
 # application library
-add_library(core_lib adaptive_sampler.cpp)
+add_library(core_lib adaptive_sampler.cpp reporter.cpp)
 target_include_directories(core_lib PUBLIC ${expected_SOURCE_DIR}/include)
 
 ################################################################################

@@ -12,7 +12,8 @@ struct ErrorInfo {
     kNone,
     kInvalidDegreesOfFreedom,
     kTooFewSamples,
-    kDivisionByZero
+    kDivisionByZero,
+    kUnexpectedKernelResult
   } error_type;
 
   std::string message;
@@ -24,5 +25,6 @@ struct ErrorInfo {
 };
 
 using ExpectedDouble = tl::expected<double, ErrorInfo>;
+using ExpectedInt = tl::expected<int, ErrorInfo>;
 using ExpectedBool = tl::expected<bool, ErrorInfo>;
 using ExpectedVoid = tl::expected<void, ErrorInfo>;
