@@ -16,6 +16,7 @@
 // Test:
 // $ ./build/tests/test_app
 
+const double kRequiredPrecision = 0.35;
 typedef void (*kernelFuncPtr)(int, float *, float *);
 
 // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
@@ -78,13 +79,13 @@ float TimeKernel(kernelFuncPtr kFunc, int num_blocks, int block_size, int n,
   return timer.ElapsedMilliseconds();
 }
 
-int HardwareInfo() {
-  int max_threads_per_SM = 0;
+cudaDeviceProp HardwareInfo() {
   int num_devices = 0;
   cudaGetDeviceCount(&num_devices);  // Get the number of devices
   if (num_devices == 0) {
     std::cout << "No CUDA devices found." << std::endl;
-    return 0;
+    exit(1);  // TODO(Gary): Fix.
+    // return 0;
   }
 
   std::cout << "Number of CUDA devices: " << num_devices << std::endl;
@@ -100,21 +101,36 @@ int HardwareInfo() {
               << std::endl;
     std::cout << "  Maximum threads per SM: "
               << props.maxThreadsPerMultiProcessor << std::endl;
-    max_threads_per_SM = props.maxThreadsPerMultiProcessor;
+    std::cout << "  Maximum warps: " << props.warpSize << std::endl;
+    std::cout << "  Maximum threads per block: " << props.maxThreadsPerBlock
+              << std::endl;
+    std::cout << "  Maximum thread dimensions: (" << props.maxThreadsDim[0]
+              << ", " << props.maxThreadsDim[1] << ", "
+              << props.maxThreadsDim[2] << ")" << std::endl;
     std::cout << "  Amount of shared memory per SM: "
               << props.sharedMemPerMultiprocessor << " bytes" << std::endl;
     std::cout << "  Number of registers per SM: " << props.regsPerMultiprocessor
               << std::endl;
   }
-  return max_threads_per_SM;
+  return props;
 }
 
-tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double goal_rp,
+double Occupancy(cudaDeviceProp props, int numBlocks, int blockSize,
+                 kernelFuncPtr kernel) {
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocks, kernel, blockSize,
+                                                0);
+  int activeWarps = numBlocks * blockSize / props.warpSize;
+  assert(0 != props.warpSize);
+  int maxWarps = props.maxThreadsPerMultiProcessor / props.warpSize;
+  return (static_cast<double>(activeWarps) / maxWarps);
+}
+
+tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
                                                      kernelFuncPtr kernel_fn,
                                                      int num_blocks,
                                                      int block_size, int n,
                                                      float *x, float *y) {
-  AdaptiveSampler stats(goal_rp);
+  AdaptiveSampler stats(required_precision);
   bool skip_first = true;
   while (stats.ShouldContinue()) {
     // Initialize x and y arrays on the host.
@@ -140,30 +156,47 @@ tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double goal_rp,
   return stats;
 }
 
-void RunStrideVarations(int max_threads_per_SM) {
-  int N = 1 << 20;  // Run kernel on 1M elements on the GPU.
+void RunStrideVarations(cudaDeviceProp hardware_info) {
+  int n = 1 << 20;  // Run kernel on 1M elements on the GPU.
   float *x, *y;
+  int max_num_blocks = hardware_info.maxThreadsDim[0] *
+                       hardware_info.maxThreadsDim[1] *
+                       hardware_info.maxThreadsDim[2];
+  int max_block_size = hardware_info.maxThreadsPerBlock;
+  std::cout << "max_num_blocks: " << max_num_blocks << std::endl;
+  std::cout << "max_block_size: " << max_block_size << std::endl;
+
+  // kFunc<<<numBlocks, blockSize>>>
+  //                    blockSize <= maxThreadsPerBlock
+  //         numBlocks <= maxgridsize
+  // kFunc<<<max_num_blocks, max_block_size>>>
 
   // Allocate Unified Memory – accessible from CPU or GPU.
-  cudaMallocManaged(&x, N * sizeof(float));
-  cudaMallocManaged(&y, N * sizeof(float));
+  cudaMallocManaged(&x, n * sizeof(float));
+  cudaMallocManaged(&y, n * sizeof(float));
 
-  // std::cout << "Running variation with " << numBlocks << " blocks of size "
-  //           << blockSize << " and stride " << stride << std::endl;
-  // RepeatUntil(0.3, AddWithStride, numBlocks, blockSize, N, x, y);
-
-  float time_at_max_bandwidth = 1e20;
-  float max_bandwidth = 0.0;
+  float max_bw_time = 1e20;
+  float max_bw_bandwidth = 0.0;
   int max_bw_block_size = 0;
   int max_bw_num_blocks = 0;
+  float min_time_time = 1e20;
+  float min_time_bandwidth = 0.0;
+  int min_time_block_size = 0;
+  int min_time_num_blocks = 0;
 
-  for (int blockSize = 32; blockSize <= max_threads_per_SM; blockSize += 32) {
-    for (int f = 1; f <= (2 << 19); f *= 2) {
-      int numBlocks = (N + f - 1) / f;
-      // int numBlocks = (N + f * blockSize - 1) / (f * blockSize);
+  auto kernel = AddWithStride;
+  for (int i = 0, blockSize = 1; blockSize <= max_block_size;
+       i++, blockSize = 32 * i) {
+    for (int numBlocks = 1; numBlocks <= max_num_blocks; numBlocks *= 2) {
+      if (numBlocks * blockSize > n) {
+        numBlocks = numBlocks / 2 * 1.1;  // Try just 10% overprovision.
+      }
       Reporter::PrintResultsHeader(numBlocks, blockSize);
-      auto stats_res =
-          RepeatUntil(0.3, AddWithStride, numBlocks, blockSize, N, x, y);
+      auto occupancy = Occupancy(hardware_info, numBlocks, blockSize, kernel);
+      std::cout << ", occupancy: " << occupancy;
+
+      auto stats_res = RepeatUntil(kRequiredPrecision, kernel, numBlocks,
+                                   blockSize, n, x, y);
 
       if (!stats_res) {
         std::cout << " [failed]" << std::endl;
@@ -174,24 +207,42 @@ void RunStrideVarations(int max_threads_per_SM) {
         std::cout << " [failed, mean==0.0!]" << std::endl;
         continue;
       }
-      auto time_in_seconds = *mean_res / 1000.0;
-      auto bandwidth = 3 * N * sizeof(float) / time_in_seconds;
-      Reporter::PrintResultsData(bandwidth, *mean_res, stats_res->NumSamples());
-      if (bandwidth > max_bandwidth) {
-        time_at_max_bandwidth = *mean_res;
-        max_bandwidth = bandwidth;
+      auto time_in_ms = *mean_res;
+      auto time_in_seconds = time_in_ms / 1000.0;
+      auto bandwidth = 3 * n * sizeof(float) / time_in_seconds;
+      Reporter::PrintResultsData(bandwidth, time_in_ms,
+                                 stats_res->NumSamples());
+      if (time_in_ms < min_time_time) {
+        min_time_time = time_in_ms;
+        min_time_bandwidth = bandwidth;
+        min_time_num_blocks = numBlocks;
+        min_time_block_size = blockSize;
+      }
+      if (bandwidth > max_bw_bandwidth) {
+        max_bw_time = time_in_ms;
+        max_bw_bandwidth = bandwidth;
         max_bw_num_blocks = numBlocks;
         max_bw_block_size = blockSize;
       }
+      if (numBlocks * blockSize > n) {
+        // n = 1 << 20 = 1,048,576
+        // <<<2097152,  1>>> because 2,097,152 *  1 = 2,097,152 > 1,048,576
+        // <<<  32768, 64>>> because    32,768 * 64 = 2,097,152 > 1,048,576
+        // Try only one overprovision.
+        break;
+      }
     }
-    Reporter::PrintResults("current best: ", max_bw_num_blocks,
-                           max_bw_block_size, max_bandwidth,
-                           time_at_max_bandwidth);
+    Reporter::PrintResults("current best     time: ", min_time_num_blocks,
+                           min_time_block_size, min_time_bandwidth,
+                           min_time_time);
+    Reporter::PrintResults("current best bandwith: ", max_bw_num_blocks,
+                           max_bw_block_size, max_bw_bandwidth, max_bw_time);
   }
-
-  Reporter::PrintResults("==> final best: ", max_bw_num_blocks,
-                         max_bw_block_size, max_bandwidth,
-                         time_at_max_bandwidth);
+  Reporter::PrintResults("==> final best      time: ", min_time_num_blocks,
+                         min_time_block_size, min_time_bandwidth,
+                         min_time_time);
+  Reporter::PrintResults("==> final best bandwidth: ", max_bw_num_blocks,
+                         max_bw_block_size, max_bw_bandwidth, max_bw_time);
 
   // Free memory.
   cudaFree(x);
@@ -199,9 +250,9 @@ void RunStrideVarations(int max_threads_per_SM) {
 }
 
 int main(void) {
-  auto max_threads_per_SM = HardwareInfo();
+  auto hardware_info = HardwareInfo();
 
-  RunStrideVarations(max_threads_per_SM);
+  RunStrideVarations(hardware_info);
 
   return 0;
 }
