@@ -5,6 +5,7 @@
 #include <string>
 
 #include "adaptive_sampler.h"
+#include "metrics.h"
 #include "reporter.h"
 #include "timer.h"
 
@@ -156,15 +157,64 @@ tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
   return stats;
 }
 
+// Calculate the optimimal num_blocks and block_size for the given kernel on
+// the given hardware.
+void OptimizeOccupancy(cudaDeviceProp &hardware_info, int &num_blocks,
+                       int &block_size, kernelFuncPtr kernel) {
+  int min_grid_size;
+  cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0);
+
+  int num_blocks_per_SM;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks_per_SM, kernel,
+                                                block_size, 0);
+
+  int num_SMs = hardware_info.multiProcessorCount;
+  num_blocks = num_blocks_per_SM * num_SMs;
+
+  double current_occupancy =
+      Occupancy(hardware_info, num_blocks, block_size, kernel);
+
+  for (int bs = block_size; bs >= 32; bs -= 32) {
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks_per_SM, kernel,
+                                                  bs, 0);
+    int nb = num_blocks_per_SM * num_SMs;
+    double occ = Occupancy(hardware_info, nb, bs, kernel);
+
+    if (occ > current_occupancy) {
+      num_blocks = nb;
+      block_size = bs;
+      current_occupancy = occ;
+    }
+
+    if (current_occupancy >= 0.99) break;  // Close enough to 1.0
+  }
+}
+
+void PrintResults(std::string header, Metrics metrics) {
+  Reporter::PrintResults(header + " best      time: ",
+                         metrics.get_metrics(Condition::kMinTime));
+  Reporter::PrintResults(header + " best  bandwith: ",
+                         metrics.get_metrics(Condition::kMaxBandwidth));
+  Reporter::PrintResults(header + " best occupancy: ",
+                         metrics.get_metrics(Condition::kMaxOccupancy));
+}
+
 void RunStrideVarations(cudaDeviceProp hardware_info) {
+  Metrics metrics;
   int n = 1 << 20;  // Run kernel on 1M elements on the GPU.
   float *x, *y;
+
   int max_num_blocks = hardware_info.maxThreadsDim[0] *
                        hardware_info.maxThreadsDim[1] *
                        hardware_info.maxThreadsDim[2];
   int max_block_size = hardware_info.maxThreadsPerBlock;
   std::cout << "max_num_blocks: " << max_num_blocks << std::endl;
   std::cout << "max_block_size: " << max_block_size << std::endl;
+
+  int numBlocks, blockSize;
+  OptimizeOccupancy(hardware_info, numBlocks, blockSize, AddWithStride);
+  std::cout << "expected optimal num_blocks: " << numBlocks << std::endl;
+  std::cout << "expected optimal block_size: " << blockSize << std::endl;
 
   // kFunc<<<num_blocks, block_size>>>
   //                    block_size <= maxThreadsPerBlock
@@ -175,15 +225,6 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
   cudaMallocManaged(&x, n * sizeof(float));
   cudaMallocManaged(&y, n * sizeof(float));
 
-  float max_bw_time = 1e20;
-  float max_bw_bandwidth = 0.0;
-  int max_bw_block_size = 0;
-  int max_bw_num_blocks = 0;
-  float min_time_time = 1e20;
-  float min_time_bandwidth = 0.0;
-  int min_time_block_size = 0;
-  int min_time_num_blocks = 0;
-
   auto kernel = AddWithStride;
   for (int i = 0, block_size = 1; block_size <= max_block_size;
        i++, block_size = 32 * i) {
@@ -193,7 +234,6 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
       }
       Reporter::PrintResultsHeader(num_blocks, block_size);
       auto occupancy = Occupancy(hardware_info, num_blocks, block_size, kernel);
-      std::cout << ", occupancy: " << occupancy;
 
       auto stats_res = RepeatUntil(kRequiredPrecision, kernel, num_blocks,
                                    block_size, n, x, y);
@@ -210,20 +250,11 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
       auto time_in_ms = *mean_res;
       auto time_in_seconds = time_in_ms / 1000.0;
       auto bandwidth = 3 * n * sizeof(float) / time_in_seconds;
-      Reporter::PrintResultsData(bandwidth, time_in_ms,
-                                 stats_res->NumSamples());
-      if (time_in_ms < min_time_time) {
-        min_time_time = time_in_ms;
-        min_time_bandwidth = bandwidth;
-        min_time_num_blocks = num_blocks;
-        min_time_block_size = block_size;
-      }
-      if (bandwidth > max_bw_bandwidth) {
-        max_bw_time = time_in_ms;
-        max_bw_bandwidth = bandwidth;
-        max_bw_num_blocks = num_blocks;
-        max_bw_block_size = block_size;
-      }
+      Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
+                           occupancy};
+      metrics.UpdateAll(current_metrics);
+      Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
+
       if (num_blocks * block_size > n) {
         // n = 1 << 20 = 1,048,576
         // <<<2097152,  1>>> because 2,097,152 *  1 = 2,097,152 > 1,048,576
@@ -232,17 +263,9 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
         break;
       }
     }
-    Reporter::PrintResults("current best     time: ", min_time_num_blocks,
-                           min_time_block_size, min_time_bandwidth,
-                           min_time_time);
-    Reporter::PrintResults("current best bandwith: ", max_bw_num_blocks,
-                           max_bw_block_size, max_bw_bandwidth, max_bw_time);
+    PrintResults("current", metrics);
   }
-  Reporter::PrintResults("==> final best      time: ", min_time_num_blocks,
-                         min_time_block_size, min_time_bandwidth,
-                         min_time_time);
-  Reporter::PrintResults("==> final best bandwidth: ", max_bw_num_blocks,
-                         max_bw_block_size, max_bw_bandwidth, max_bw_time);
+  PrintResults("final", metrics);
 
   // Free memory.
   cudaFree(x);

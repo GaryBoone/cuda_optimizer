@@ -44,3 +44,32 @@ std::string Reporter::FormatWithCommas(int n) {
   }
   return result;
 }
+
+void Reporter::PrintResultsHeader(int num_blocks, int block_size) {
+  std::cout << "<<numBlocks, blockSize>> = <<" << std::setw(10)
+            << Reporter::FormatWithCommas(num_blocks) << ", " << std::setw(5)
+            << Reporter::FormatWithCommas(block_size) << ">>";
+}
+
+void Reporter::PrintResultsData(Data data, std::optional<int> num_samples) {
+  std::cout << ", occupancy: " << std::fixed << std::setprecision(2)
+            << std::setw(5) << data.occupancy;
+
+  std::cout << ", bandwidth: " << std::setw(10)
+            << Reporter::FormatToSI(data.bandwidth) << "B/s";
+
+  std::cout << ", time: " << std::fixed << std::setprecision(2) << std::setw(7)
+            << data.time_ms << " ms";
+
+  if (num_samples.has_value()) {
+    std::cout << " (over " << *num_samples << " runs) ";
+  }
+
+  std::cout << std::endl;
+}
+
+void Reporter::PrintResults(std::string prefix, Data data) {
+  std::cout << prefix;
+  Reporter::PrintResultsHeader(data.num_blocks, data.block_size);
+  PrintResultsData(data, std::nullopt);
+}

@@ -25,7 +25,13 @@ FetchContent_MakeAvailable(expected)
 
 ################################################################################
 # application library
-add_library(core_lib adaptive_sampler.cpp reporter.cpp)
+set(SOURCE_FILES
+  adaptive_sampler.cpp
+  reporter.cpp
+  metrics.cpp
+)
+
+add_library(core_lib ${SOURCE_FILES})
 target_include_directories(core_lib PUBLIC ${expected_SOURCE_DIR}/include)
 
 ################################################################################
