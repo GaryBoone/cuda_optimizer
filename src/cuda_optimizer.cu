@@ -115,11 +115,11 @@ cudaDeviceProp HardwareInfo() {
   return props;
 }
 
-double Occupancy(cudaDeviceProp props, int numBlocks, int blockSize,
+double Occupancy(cudaDeviceProp props, int num_blocks, int block_size,
                  kernelFuncPtr kernel) {
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocks, kernel, blockSize,
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, kernel, block_size,
                                                 0);
-  int activeWarps = numBlocks * blockSize / props.warpSize;
+  int activeWarps = num_blocks * block_size / props.warpSize;
   assert(0 != props.warpSize);
   int maxWarps = props.maxThreadsPerMultiProcessor / props.warpSize;
   return (static_cast<double>(activeWarps) / maxWarps);
@@ -166,9 +166,9 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
   std::cout << "max_num_blocks: " << max_num_blocks << std::endl;
   std::cout << "max_block_size: " << max_block_size << std::endl;
 
-  // kFunc<<<numBlocks, blockSize>>>
-  //                    blockSize <= maxThreadsPerBlock
-  //         numBlocks <= maxgridsize
+  // kFunc<<<num_blocks, block_size>>>
+  //                    block_size <= maxThreadsPerBlock
+  //         num_blocks <= maxgridsize
   // kFunc<<<max_num_blocks, max_block_size>>>
 
   // Allocate Unified Memory – accessible from CPU or GPU.
@@ -185,18 +185,18 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
   int min_time_num_blocks = 0;
 
   auto kernel = AddWithStride;
-  for (int i = 0, blockSize = 1; blockSize <= max_block_size;
-       i++, blockSize = 32 * i) {
-    for (int numBlocks = 1; numBlocks <= max_num_blocks; numBlocks *= 2) {
-      if (numBlocks * blockSize > n) {
-        numBlocks = numBlocks / 2 * 1.1;  // Try just 10% overprovision.
+  for (int i = 0, block_size = 1; block_size <= max_block_size;
+       i++, block_size = 32 * i) {
+    for (int num_blocks = 1; num_blocks <= max_num_blocks; num_blocks *= 2) {
+      if (num_blocks * block_size > n) {
+        num_blocks = num_blocks / 2 * 1.1;  // Try just 10% overprovision.
       }
-      Reporter::PrintResultsHeader(numBlocks, blockSize);
-      auto occupancy = Occupancy(hardware_info, numBlocks, blockSize, kernel);
+      Reporter::PrintResultsHeader(num_blocks, block_size);
+      auto occupancy = Occupancy(hardware_info, num_blocks, block_size, kernel);
       std::cout << ", occupancy: " << occupancy;
 
-      auto stats_res = RepeatUntil(kRequiredPrecision, kernel, numBlocks,
-                                   blockSize, n, x, y);
+      auto stats_res = RepeatUntil(kRequiredPrecision, kernel, num_blocks,
+                                   block_size, n, x, y);
 
       if (!stats_res) {
         std::cout << " [failed]" << std::endl;
@@ -215,16 +215,16 @@ void RunStrideVarations(cudaDeviceProp hardware_info) {
       if (time_in_ms < min_time_time) {
         min_time_time = time_in_ms;
         min_time_bandwidth = bandwidth;
-        min_time_num_blocks = numBlocks;
-        min_time_block_size = blockSize;
+        min_time_num_blocks = num_blocks;
+        min_time_block_size = block_size;
       }
       if (bandwidth > max_bw_bandwidth) {
         max_bw_time = time_in_ms;
         max_bw_bandwidth = bandwidth;
-        max_bw_num_blocks = numBlocks;
-        max_bw_block_size = blockSize;
+        max_bw_num_blocks = num_blocks;
+        max_bw_block_size = block_size;
       }
-      if (numBlocks * blockSize > n) {
+      if (num_blocks * block_size > n) {
         // n = 1 << 20 = 1,048,576
         // <<<2097152,  1>>> because 2,097,152 *  1 = 2,097,152 > 1,048,576
         // <<<  32768, 64>>> because    32,768 * 64 = 2,097,152 > 1,048,576
