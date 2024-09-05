@@ -30,7 +30,7 @@ set(SOURCE_FILES
   reporter.cpp
   metrics.cpp
   kernels.cu
-  examples/add.cu
+  examples/add_with_stride.cu
   examples/euclidian_distance.cu
 )
 

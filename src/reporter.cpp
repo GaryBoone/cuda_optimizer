@@ -1,4 +1,3 @@
-
 #include "./reporter.h"
 
 #include <iostream>

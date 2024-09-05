@@ -12,6 +12,7 @@ set(TEST_FILES
   test_adaptive_sampler.cpp
   test_reporter.cpp
   test_metrics.cpp
+  test_generators.cpp
 )
 
 add_executable(test_app ${TEST_FILES})

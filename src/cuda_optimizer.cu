@@ -6,7 +6,7 @@
 
 #include "adaptive_sampler.h"
 #include "example.h"
-#include "examples/add.h"
+#include "examples/add_with_stride.h"
 #include "examples/euclidian_distance.h"
 #include "kernels.h"
 #include "metrics.h"
@@ -23,27 +23,8 @@
 
 const double kRequiredPrecision = 0.35;
 
-int CheckResult(float *y, int n) {
-  int num_errors = 0;
-  double max_error = 0.0;
-
-  for (int i = 0; i < n; i++) {
-    if (fabs(y[i] - 3.0f) > 1e-6) {
-      num_errors++;
-    }
-    max_error = fmax(max_error, fabs(y[i] - 3.0f));
-  }
-
-  if (num_errors > 0) {
-    std::cout << "  number of errors: " << num_errors;
-  }
-  if (max_error > 0.0) {
-    std::cout << ",  max error: " << max_error;
-  }
-  return num_errors;
-}
-
-float TimeKernel(IKernel &ex, int num_blocks, int block_size) {
+template <typename KernelFunc>
+float TimeKernel(IKernel<KernelFunc> &ex, int num_blocks, int block_size) {
   CudaTimer timer;
   timer.Start();
   ex.RunKernel(num_blocks, block_size);
@@ -91,8 +72,9 @@ cudaDeviceProp HardwareInfo() {
   return props;
 }
 
+template <typename KernelFunc>
 double Occupancy(cudaDeviceProp props, int num_blocks, int block_size,
-                 kernelFuncPtr kernel) {
+                 KernelFunc kernel) {
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, kernel, block_size,
                                                 0);
   int activeWarps = num_blocks * block_size / props.warpSize;
@@ -101,14 +83,15 @@ double Occupancy(cudaDeviceProp props, int num_blocks, int block_size,
   return (static_cast<double>(activeWarps) / maxWarps);
 }
 
+template <typename KernelFunc>
 tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
-                                                     IKernel &ex,
+                                                     IKernel<KernelFunc> &ex,
                                                      int num_blocks,
                                                      int block_size) {
   AdaptiveSampler stats(required_precision);
   bool skip_first = true;
   while (stats.ShouldContinue()) {
-    ex.Reset();
+    ex.Setup();
 
     float time = TimeKernel(ex, num_blocks, block_size);
 
@@ -116,6 +99,7 @@ tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
       return tl::make_unexpected(ErrorInfo(ErrorInfo::kUnexpectedKernelResult,
                                            "errors in kernel results"));
     }
+    ex.Cleanup();
 
     // Don't include the first run in the averages to ignore loading effects.
     if (skip_first) {
@@ -129,8 +113,9 @@ tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
 
 // Calculate the optimimal num_blocks and block_size for the given kernel on
 // the given hardware.
+template <typename KernelFunc>
 void OptimizeOccupancy(cudaDeviceProp &hardware_info, int &num_blocks,
-                       int &block_size, kernelFuncPtr kernel) {
+                       int &block_size, KernelFunc kernel) {
   int min_grid_size;
   cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0);
 
@@ -169,36 +154,35 @@ void PrintResults(std::string header, Metrics metrics) {
                          metrics.get_metrics(Condition::kMaxOccupancy));
 }
 
-void RunStrideVariations(cudaDeviceProp hardware_info, IKernel &ex) {
+template <typename KernelFunc>
+void RunStrideVariations(cudaDeviceProp hardware_info,
+                         IKernel<KernelFunc> &ex) {
   Metrics metrics;
 
-  int numBlocks, blockSize;
-  OptimizeOccupancy(hardware_info, numBlocks, blockSize, ex.GetKernel());
-  std::cout << "expected optimal num_blocks: " << numBlocks << std::endl;
-  std::cout << "expected optimal block_size: " << blockSize << std::endl;
+  int num_blocks, block_size;
+  OptimizeOccupancy(hardware_info, num_blocks, block_size, ex.GetKernel());
+  std::cout << "expected optimal num_blocks: " << num_blocks << std::endl;
+  std::cout << "expected optimal block_size: " << block_size << std::endl;
 
-  // kFunc<<<num_blocks, block_size>>>
-  //                    block_size <= maxThreadsPerBlock
-  //         num_blocks <= maxgridsize
-  // kFunc<<<max_num_blocks, max_block_size>>>
-
-  // Allocate Unified Memory – accessible from CPU or GPU.
-  ex.Setup();
   auto kernel_info = ex.GetKernelInfo();
 
   auto block_size_gen = ex.GetBlockSizeGenerator();
-  while (auto block_size = block_size_gen->Next()) {
+  while (auto block_size_opt = block_size_gen->Next()) {
     auto num_blocks_gen = ex.GetNumBlocksGenerator();
-    while (auto num_blocks = num_blocks_gen->Next()) {
-      if (*num_blocks * *block_size > kernel_info.n) {
-        *num_blocks = *num_blocks / 2 * 1.1;  // Try just 10% overprovision.
+    while (auto num_blocks_opt = num_blocks_gen->Next()) {
+      int num_blocks = *num_blocks_opt;
+      int block_size = *block_size_opt;
+      if (num_blocks * block_size > kernel_info.n) {
+        // Don't double; only overprovision by 10%.
+        num_blocks = num_blocks / 2.0 * 1.1;
       }
-      Reporter::PrintResultsHeader(*num_blocks, *block_size);
+
+      Reporter::PrintResultsHeader(num_blocks, block_size);
       auto occupancy =
-          Occupancy(hardware_info, *num_blocks, *block_size, ex.GetKernel());
+          Occupancy(hardware_info, num_blocks, block_size, ex.GetKernel());
 
       auto stats_res =
-          RepeatUntil(kRequiredPrecision, ex, *num_blocks, *block_size);
+          RepeatUntil(kRequiredPrecision, ex, num_blocks, block_size);
 
       if (!stats_res) {
         std::cout << " [failed]" << std::endl;
@@ -213,24 +197,18 @@ void RunStrideVariations(cudaDeviceProp hardware_info, IKernel &ex) {
       auto time_in_seconds = time_in_ms / 1000.0;
       auto bandwidth =
           kernel_info.n * kernel_info.bytesPerElement / time_in_seconds;
-      Data current_metrics{*num_blocks, *block_size, time_in_ms, bandwidth,
+      Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
                            occupancy};
       metrics.UpdateAll(current_metrics);
       Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
 
-      if (*num_blocks * *block_size > kernel_info.n) {
-        // n = 1 << 20 = 1,048,576
-        // <<<2097152,  1>>> because 2,097,152 *  1 = 2,097,152 > 1,048,576
-        // <<<  32768, 64>>> because    32,768 * 64 = 2,097,152 > 1,048,576
-        // Try only one overprovision.
+      if (num_blocks * block_size > kernel_info.n) {
         break;
       }
     }
     PrintResults("current", metrics);
   }
   PrintResults("final", metrics);
-
-  ex.Cleanup();
 }
 
 int main(void) {
@@ -239,14 +217,25 @@ int main(void) {
                        hardware_info.maxThreadsDim[1] *
                        hardware_info.maxThreadsDim[2];
   int max_block_size = hardware_info.maxThreadsPerBlock;
-  std::cout << "max_num_blocks: " << max_num_blocks << std::endl;
-  std::cout << "max_block_size: " << max_block_size << std::endl;
+  std::cout << "...which means that: " << std::endl;
+  std::cout << "  max_num_blocks: "
+            << Reporter::FormatWithCommas(max_num_blocks) << std::endl;
+  std::cout << "  max_block_size: "
+            << Reporter::FormatWithCommas(max_block_size) << std::endl;
 
-  EuclidianDistance ex;
-  ex.run();
+  std::cout << "\nRunning Euclidian Distance kernel" << std::endl;
+  EuclidianDistance dist(max_num_blocks, max_block_size);
+  dist.Run(4096, 256);
 
+  std::cout << "\nRunning AddWithStride kernel" << std::endl;
   Add add(max_num_blocks, max_block_size);
+  add.Run(4096, 256);
+
+  std::cout << "\nRunning AddWithStride variations" << std::endl;
   RunStrideVariations(hardware_info, add);
+
+  std::cout << "\nRunning Euclidian Distance variations" << std::endl;
+  RunStrideVariations(hardware_info, dist);
 
   return 0;
 }
