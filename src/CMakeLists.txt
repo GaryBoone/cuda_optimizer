@@ -29,6 +29,9 @@ set(SOURCE_FILES
   adaptive_sampler.cpp
   reporter.cpp
   metrics.cpp
+  kernels.cu
+  examples/add.cu
+  examples/euclidian_distance.cu
 )
 
 add_library(core_lib ${SOURCE_FILES})
