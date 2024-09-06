@@ -30,8 +30,10 @@ set(SOURCE_FILES
   reporter.cpp
   metrics.cpp
   kernels.cu
-  examples/add_with_stride.cu
-  examples/euclidian_distance.cu
+  examples/add_strided.cu
+  examples/add_unstrided.cu
+  examples/euclidian_distance_strided.cu
+  examples/euclidian_distance_unstrided.cu
 )
 
 add_library(core_lib ${SOURCE_FILES})

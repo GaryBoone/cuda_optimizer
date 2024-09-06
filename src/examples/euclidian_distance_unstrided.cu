@@ -4,20 +4,19 @@
 #include <vector>
 
 #include "../kernels.h"
-#include "euclidian_distance.h"
+#include "euclidian_distance_unstrided.h"
 
-__global__ void EuclidianDistanceKernel(int n, float2 *x, float2 *y,
-                                        float *distance) {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
-  int stride = blockDim.x * gridDim.x;
-  for (int i = index; i < n; i += stride) {
+__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
+                                                 float *distance) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
     float2 dp = subtract(y[i], x[i]);
     float dist = sqrtf(dot(dp, dp));
     distance[i] = dist;
   }
 }
 
-void EuclidianDistance::Setup() {
+void EuclidianDistanceUnstrided::Setup() {
   h_x_.resize(n_);
   h_y_.resize(n_);
   h_distance_.resize(n_);
@@ -39,22 +38,22 @@ void EuclidianDistance::Setup() {
   cudaMemcpy(d_y_, h_y_.data(), n_ * sizeof(float2), cudaMemcpyHostToDevice);
 }
 
-void EuclidianDistance::RunKernel(int num_blocks, int block_size) {
-  EuclidianDistanceKernel<<<num_blocks, block_size>>>(n_, d_x_, d_y_,
-                                                      d_distance_);
+void EuclidianDistanceUnstrided::RunKernel(int num_blocks, int block_size) {
+  EuclidianDistanceUnstridedKernel<<<num_blocks, block_size>>>(n_, d_x_, d_y_,
+                                                               d_distance_);
   cudaDeviceSynchronize();
 
   cudaMemcpy(h_distance_.data(), d_distance_, n_ * sizeof(float),
              cudaMemcpyDeviceToHost);
 }
 
-void EuclidianDistance::Cleanup() {
+void EuclidianDistanceUnstrided::Cleanup() {
   cudaFree(d_x_);
   cudaFree(d_y_);
   cudaFree(d_distance_);
 }
 
-int EuclidianDistance::CheckResults() {
+int EuclidianDistanceUnstrided::CheckResults() {
   int num_errors = 0;
   float max_error = 0.0;
   for (int i = 0; i < n_; ++i) {

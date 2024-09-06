@@ -4,17 +4,17 @@
 #include <vector>
 
 #include "../kernels.h"
-#include "add_strided.h"
+#include "add_unstrided.h"
 
-__global__ void AddWithStrideKernel(int n, float *x, float *y) {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
-  int stride = blockDim.x * gridDim.x;
-  for (int i = index; i < n; i += stride) {
+// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
+__global__ void AddWithoutStrideKernel(int n, float *x, float *y) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
     y[i] = x[i] + y[i];
   }
 }
 
-void AddStrided::Setup() {
+void AddUnstrided::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
@@ -32,17 +32,17 @@ void AddStrided::Setup() {
   }
 }
 
-void AddStrided::RunKernel(int num_blocks, int block_size) {
-  AddWithStrideKernel<<<num_blocks, block_size>>>(n_, x_, y_);
+void AddUnstrided::RunKernel(int num_blocks, int block_size) {
+  AddWithoutStrideKernel<<<num_blocks, block_size>>>(n_, x_, y_);
   cudaDeviceSynchronize();
 }
 
-void AddStrided::Cleanup() {
+void AddUnstrided::Cleanup() {
   cudaFree(x_);
   cudaFree(y_);
 }
 
-int AddStrided::CheckResults() {
+int AddUnstrided::CheckResults() {
   int num_errors = 0;
   double max_error = 0.0;
 

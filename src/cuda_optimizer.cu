@@ -6,8 +6,10 @@
 
 #include "adaptive_sampler.h"
 #include "example.h"
-#include "examples/add_with_stride.h"
-#include "examples/euclidian_distance.h"
+#include "examples/add_strided.h"
+#include "examples/add_unstrided.h"
+#include "examples/euclidian_distance_strided.h"
+#include "examples/euclidian_distance_unstrided.h"
 #include "kernels.h"
 #include "metrics.h"
 #include "reporter.h"
@@ -210,6 +212,51 @@ void RunStrideVariations(cudaDeviceProp hardware_info,
   }
   PrintResults("final", metrics);
 }
+template <typename KernelFunc>
+void RunUnstridedVariations(cudaDeviceProp hardware_info,
+                            IKernel<KernelFunc> &ex) {
+  Metrics metrics;
+
+  int num_blocks, block_size;
+  OptimizeOccupancy(hardware_info, num_blocks, block_size, ex.GetKernel());
+  std::cout << "expected optimal num_blocks: " << num_blocks << std::endl;
+  std::cout << "expected optimal block_size: " << block_size << std::endl;
+
+  auto kernel_info = ex.GetKernelInfo();
+
+  auto block_size_gen = ex.GetBlockSizeGenerator();
+  while (auto block_size_opt = block_size_gen->Next()) {
+    int block_size = *block_size_opt;
+    int num_blocks = (ex.GetKernelInfo().n + block_size - 1) / block_size;
+    {
+      Reporter::PrintResultsHeader(num_blocks, block_size);
+      auto occupancy =
+          Occupancy(hardware_info, num_blocks, block_size, ex.GetKernel());
+
+      auto stats_res =
+          RepeatUntil(kRequiredPrecision, ex, num_blocks, block_size);
+
+      if (!stats_res) {
+        std::cout << " [failed]" << std::endl;
+        continue;
+      }
+      auto mean_res = stats_res->EstimatedMean();
+      if (!mean_res || 0.0 == *mean_res) {
+        std::cout << " [failed, mean==0.0!]" << std::endl;
+        continue;
+      }
+      auto time_in_ms = *mean_res;
+      auto time_in_seconds = time_in_ms / 1000.0;
+      auto bandwidth =
+          kernel_info.n * kernel_info.bytesPerElement / time_in_seconds;
+      Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
+                           occupancy};
+      metrics.UpdateAll(current_metrics);
+      Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
+    }
+  }
+  PrintResults("final", metrics);
+}
 
 int main(void) {
   auto hardware_info = HardwareInfo();
@@ -223,19 +270,35 @@ int main(void) {
   std::cout << "  max_block_size: "
             << Reporter::FormatWithCommas(max_block_size) << std::endl;
 
-  std::cout << "\nRunning Euclidian Distance kernel" << std::endl;
-  EuclidianDistance dist(max_num_blocks, max_block_size);
-  dist.Run(4096, 256);
-
-  std::cout << "\nRunning AddWithStride kernel" << std::endl;
-  Add add(max_num_blocks, max_block_size);
+  // Individual runs.
+  std::cout << "\n==> Add with stride kernel:" << std::endl;
+  AddStrided add(max_num_blocks, max_block_size);
   add.Run(4096, 256);
 
-  std::cout << "\nRunning AddWithStride variations" << std::endl;
+  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
+  EuclidianDistanceStrided dist(max_num_blocks, max_block_size);
+  dist.Run(4096, 256);
+
+  std::cout << "\n==> Add without stride kernel:" << std::endl;
+  AddUnstrided add_unstrided(max_num_blocks, max_block_size);
+  add_unstrided.Run(4096, 256);
+
+  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
+  EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
+  dist_unstrided.Run(4096, 256);
+
+  // Variation runs.
+  std::cout << "\n==> Optimizing Add with stride:" << std::endl;
   RunStrideVariations(hardware_info, add);
 
-  std::cout << "\nRunning Euclidian Distance variations" << std::endl;
+  std::cout << "\n==> Optimizing Euclidian Distance with stride:" << std::endl;
   RunStrideVariations(hardware_info, dist);
+
+  std::cout << "\n==> Optimizing Add without stride:" << std::endl;
+  RunUnstridedVariations(hardware_info, add_unstrided);
+
+  std::cout << "\n==> Optimizing Euclidian Distance w/out stride:" << std::endl;
+  RunUnstridedVariations(hardware_info, dist_unstrided);
 
   return 0;
 }

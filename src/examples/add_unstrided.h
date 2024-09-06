@@ -14,16 +14,16 @@
 #include "../kernels.h"
 
 // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
-__global__ void AddWithStrideKernel(int n, float *x, float *y);
+__global__ void AddWithoutStrideKernel(int n, float *x, float *y);
 
-class Add : public IKernel<void (*)(int, float *, float *)> {
+class AddUnstrided : public IKernel<void (*)(int, float *, float *)> {
  public:
-  Add(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
+  AddUnstrided(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
     return {"Add", n_, sizeof(float) * 3};
   }
   void (*GetKernel() const)(int, float *, float *) override {
-    return AddWithStrideKernel;
+    return AddWithoutStrideKernel;
   }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {

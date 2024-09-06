@@ -35,9 +35,9 @@ class IKernel {
 
     RunKernel(num_blocks, block_size);
     if (0 == CheckResults()) {
-      std::cout << "  Results are correct" << std::endl << std::flush;
+      std::cout << "    Results are correct" << std::endl << std::flush;
     } else {
-      std::cout << "  Results are incorrect" << std::endl << std::flush;
+      std::cout << "    Results are incorrect" << std::endl << std::flush;
     }
     Cleanup();
   }

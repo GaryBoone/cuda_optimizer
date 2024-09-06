@@ -13,19 +13,20 @@
 #include "../example.h"
 #include "../kernels.h"
 
-__global__ void EuclidianDistanceKernel(int n, float2 *x, float2 *y,
-                                        float *distance);
+__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
+                                                 float *distance);
 
-class EuclidianDistance
+class EuclidianDistanceUnstrided
     : public IKernel<void (*)(int, float2 *, float2 *, float *)> {
  public:
-  EuclidianDistance(int mnb, int mbs)
+  EuclidianDistanceUnstrided(int mnb, int mbs)
       : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
-    return {"EuclidianDistance", n_, sizeof(float2) * 2 + sizeof(float)};
+    return {"EuclidianDistanceUnstrided", n_,
+            sizeof(float2) * 2 + sizeof(float)};
   }
   void (*GetKernel() const)(int, float2 *, float2 *, float *) override {
-    return EuclidianDistanceKernel;
+    return EuclidianDistanceUnstridedKernel;
   }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {
