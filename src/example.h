@@ -13,9 +13,19 @@
 #include "./kernels.h"
 
 struct KernelInfo {
+  // name is the name of the kernel.
   std::string name;
+  // n is the problem size, the total number of items that will be processed.
   int n;
-  int bytesPerElement;
+  // total_bytes is the total number of bytes that will be transferred to the
+  // GPU. This value is divided by the time it takes to transfer the data to
+  // calculate the bandwidth.
+  int total_bytes;
+
+  KernelInfo(const std::string& kernel_name, int problem_size, size_t bytes)
+      : name(kernel_name),
+        n(problem_size),
+        total_bytes(static_cast<int>(bytes)) {}
 };
 
 template <typename KernelFunc>
@@ -32,7 +42,6 @@ class IKernel {
 
   void Run(int num_blocks, int block_size) {
     Setup();
-
     RunKernel(num_blocks, block_size);
     if (0 == CheckResults()) {
       std::cout << "    Results are correct" << std::endl << std::flush;

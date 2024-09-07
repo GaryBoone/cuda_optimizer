@@ -10,6 +10,7 @@
 #include "examples/add_unstrided.h"
 #include "examples/euclidian_distance_strided.h"
 #include "examples/euclidian_distance_unstrided.h"
+#include "examples/matrix_multiply.h"
 #include "kernels.h"
 #include "metrics.h"
 #include "reporter.h"
@@ -197,8 +198,7 @@ void RunStrideVariations(cudaDeviceProp hardware_info,
       }
       auto time_in_ms = *mean_res;
       auto time_in_seconds = time_in_ms / 1000.0;
-      auto bandwidth =
-          kernel_info.n * kernel_info.bytesPerElement / time_in_seconds;
+      auto bandwidth = kernel_info.total_bytes / time_in_seconds;
       Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
                            occupancy};
       metrics.UpdateAll(current_metrics);
@@ -247,8 +247,7 @@ void RunUnstridedVariations(cudaDeviceProp hardware_info,
       }
       auto time_in_ms = *mean_res;
       auto time_in_seconds = time_in_ms / 1000.0;
-      auto bandwidth =
-          kernel_info.n * kernel_info.bytesPerElement / time_in_seconds;
+      auto bandwidth = kernel_info.total_bytes / time_in_seconds;
       Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
                            occupancy};
       metrics.UpdateAll(current_metrics);
@@ -283,9 +282,13 @@ int main(void) {
   AddUnstrided add_unstrided(max_num_blocks, max_block_size);
   add_unstrided.Run(4096, 256);
 
-  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
+  std::cout << "\n==> Euclidian Distance without stride kernel:" << std::endl;
   EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
   dist_unstrided.Run(4096, 256);
+
+  std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
+  MatrixMultiply matrix_multiply(max_num_blocks, max_block_size);
+  matrix_multiply.Run(8192, 32);
 
   // Variation runs.
   std::cout << "\n==> Optimizing Add with stride:" << std::endl;
@@ -299,6 +302,9 @@ int main(void) {
 
   std::cout << "\n==> Optimizing Euclidian Distance w/out stride:" << std::endl;
   RunUnstridedVariations(hardware_info, dist_unstrided);
+
+  std::cout << "\n==> Optimizing Matrix Multiply:" << std::endl;
+  RunUnstridedVariations(hardware_info, matrix_multiply);
 
   return 0;
 }

@@ -22,8 +22,13 @@ class EuclidianDistanceUnstrided
   EuclidianDistanceUnstrided(int mnb, int mbs)
       : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
+    // For a length n Euclidian distance calculation:
+    // Problem size: n, the number of distance calculations
+    // Bandwidth: (2 reads from x and y + 1 write to distance) * n *
+    // sizeof(float2)
+    //            + (1 write to distance) * n * sizeof(float)
     return {"EuclidianDistanceUnstrided", n_,
-            sizeof(float2) * 2 + sizeof(float)};
+            (3 * n_ * sizeof(float2)) + (n_ * sizeof(float))};
   }
   void (*GetKernel() const)(int, float2 *, float2 *, float *) override {
     return EuclidianDistanceUnstridedKernel;

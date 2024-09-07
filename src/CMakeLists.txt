@@ -34,6 +34,7 @@ set(SOURCE_FILES
   examples/add_unstrided.cu
   examples/euclidian_distance_strided.cu
   examples/euclidian_distance_unstrided.cu
+  examples/matrix_multiply.cu
 )
 
 add_library(core_lib ${SOURCE_FILES})

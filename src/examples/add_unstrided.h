@@ -20,7 +20,10 @@ class AddUnstrided : public IKernel<void (*)(int, float *, float *)> {
  public:
   AddUnstrided(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
-    return {"Add", n_, sizeof(float) * 3};
+    // For a length n vector sum:
+    // Problem size: n, the number of add operations
+    // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
+    return {"AddUnstrided", n_, 3 * n_ * sizeof(float)};
   }
   void (*GetKernel() const)(int, float *, float *) override {
     return AddWithoutStrideKernel;

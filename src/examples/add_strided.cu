@@ -6,7 +6,7 @@
 #include "../kernels.h"
 #include "add_strided.h"
 
-__global__ void AddWithStrideKernel(int n, float *x, float *y) {
+__global__ void AddStridedKernel(int n, float *x, float *y) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;
   for (int i = index; i < n; i += stride) {
@@ -33,7 +33,7 @@ void AddStrided::Setup() {
 }
 
 void AddStrided::RunKernel(int num_blocks, int block_size) {
-  AddWithStrideKernel<<<num_blocks, block_size>>>(n_, x_, y_);
+  AddStridedKernel<<<num_blocks, block_size>>>(n_, x_, y_);
   cudaDeviceSynchronize();
 }
 
