@@ -208,10 +208,11 @@ void RunStrideVariations(cudaDeviceProp hardware_info,
         break;
       }
     }
-    PrintResults("current", metrics);
+    PrintResults(kernel_info.name + " current", metrics);
   }
-  PrintResults("final", metrics);
+  PrintResults(kernel_info.name + " final", metrics);
 }
+
 template <typename KernelFunc>
 void RunUnstridedVariations(cudaDeviceProp hardware_info,
                             IKernel<KernelFunc> &ex) {
@@ -254,7 +255,7 @@ void RunUnstridedVariations(cudaDeviceProp hardware_info,
       Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
     }
   }
-  PrintResults("final", metrics);
+  PrintResults(kernel_info.name + " final", metrics);
 }
 
 int main(void) {
