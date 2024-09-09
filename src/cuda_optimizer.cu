@@ -13,6 +13,7 @@
 #include "examples/matrix_multiply.h"
 #include "kernels.h"
 #include "metrics.h"
+#include "optimizer.h"
 #include "reporter.h"
 #include "timer.h"
 
@@ -270,9 +271,20 @@ int main(void) {
   std::cout << "  max_block_size: "
             << Reporter::FormatWithCommas(max_block_size) << std::endl;
 
+  ///////////////////////////////////////////
+  AddStrided add(max_num_blocks, max_block_size);
+  auto optimizer = CreateOptimizer(
+      "Strided", RunStrideVariations<void (*)(int, float *, float *)>);
+  // Optimizer optimizer("foo", RunStrideVariations);
+  // strided_optimizer.Optimize(hardware_info, strided_kernel);
+  optimizer->Optimize(hardware_info, &add);
+
+  exit(0);
+  ///////////////////////////////////////////
+
   // Individual runs.
   std::cout << "\n==> Add with stride kernel:" << std::endl;
-  AddStrided add(max_num_blocks, max_block_size);
+  // AddStrided add(max_num_blocks, max_block_size);
   add.Run(4096, 256);
 
   std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
