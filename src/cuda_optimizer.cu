@@ -5,8 +5,10 @@
 #include <string>
 
 #include "adaptive_sampler.h"
-#include "examples/add_strided.h"
-#include "examples/add_unstrided.h"
+#include "examples/add_strided_managed.h"
+#include "examples/add_strided_unmanaged.h"
+#include "examples/add_unstrided_managed.h"
+#include "examples/add_unstrided_unmanaged.h"
 #include "examples/euclidian_distance_strided.h"
 #include "examples/euclidian_distance_unstrided.h"
 #include "examples/matrix_multiply.h"
@@ -159,13 +161,25 @@ int main(void) {
             << Reporter::FormatWithCommas(max_block_size) << std::endl;
 
   // Individual runs.
-  std::cout << "\n==> Add with stride kernel:" << std::endl;
-  AddStrided add_strided(max_num_blocks, max_block_size);
-  add_strided.Run(4096, 256);
+  std::cout << "\n==> Add with stride kernel and with managed memory :"
+            << std::endl;
+  AddStridedManaged add_strided_managed(max_num_blocks, max_block_size);
+  add_strided_managed.Run(4096, 256);
 
-  std::cout << "\n==> Add without stride kernel:" << std::endl;
-  AddUnstrided add_unstrided(max_num_blocks, max_block_size);
-  add_unstrided.Run(4096, 256);
+  std::cout << "\n==> Add without stride kernel and with managed memory:"
+            << std::endl;
+  AddUnstridedManaged add_unstrided_managed(max_num_blocks, max_block_size);
+  add_unstrided_managed.Run(4096, 256);
+
+  std::cout << "\n==> Add with stride kernel and without managed memory :"
+            << std::endl;
+  AddStridedUnmanaged add_strided_unmanaged(max_num_blocks, max_block_size);
+  add_strided_unmanaged.Run(4096, 256);
+
+  std::cout << "\n==> Add without stride kernel and without managed memory:"
+            << std::endl;
+  AddUnstridedUnmanaged add_unstrided_unmanaged(max_num_blocks, max_block_size);
+  add_unstrided_unmanaged.Run(4096, 256);
 
   std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
   EuclidianDistanceStrided dist_strided(max_num_blocks, max_block_size);
@@ -180,13 +194,47 @@ int main(void) {
   matrix_multiply.Run(8192, 32);
 
   // Grid searches.
+  std::cout << "\n==> Add kernel, strided vs unstrided:" << std::endl;
   Optimizer<AddKernelFunc> AddOptimizer;
-  AddOptimizer.AddStrategy("Strided", RunStridedSearch<AddKernelFunc>,
-                           &add_strided);
-  AddOptimizer.AddStrategy("Unstrided", RunUnstridedSearch<AddKernelFunc>,
-                           &add_unstrided);
+  AddOptimizer.AddStrategy("Strided, Managed", RunStridedSearch<AddKernelFunc>,
+                           &add_strided_managed);
+  AddOptimizer.AddStrategy("Unstrided, Managed",
+                           RunUnstridedSearch<AddKernelFunc>,
+                           &add_unstrided_managed);
   AddOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n==> Add kernel, strided, managed vs unmanaged:" << std::endl;
+  Optimizer<AddKernelFunc> AddManUnManOptimizer;
+  AddManUnManOptimizer.AddStrategy("Strided, Managed",
+                                   RunStridedSearch<AddKernelFunc>,
+                                   &add_strided_managed);
+  AddManUnManOptimizer.AddStrategy("Strided, Unmanaged",
+                                   RunStridedSearch<AddKernelFunc>,
+                                   &add_strided_unmanaged);
+  AddManUnManOptimizer.OptimizeAll(hardware_info);
+
+  std::cout << "\n==> Add kernel, strided vs unstrided, managed vs unmanaged:"
+            << std::endl;
+  Optimizer<AddKernelFunc> AddFullOptimizer;
+  AddFullOptimizer.AddStrategy("Strided, Managed",
+                               RunStridedSearch<AddKernelFunc>,
+                               &add_strided_managed);
+  AddFullOptimizer.AddStrategy("Strided, Unmanaged",
+                               RunStridedSearch<AddKernelFunc>,
+                               &add_strided_unmanaged);
+  AddFullOptimizer.AddStrategy("Unstrided, Managed",
+                               RunUnstridedSearch<AddKernelFunc>,
+                               &add_unstrided_managed);
+  AddFullOptimizer.AddStrategy("Unstrided, Managed",
+                               RunUnstridedSearch<AddKernelFunc>,
+                               &add_unstrided_managed);
+  AddFullOptimizer.AddStrategy("Unstrided, Unmanaged",
+                               RunUnstridedSearch<AddKernelFunc>,
+                               &add_unstrided_unmanaged);
+  AddFullOptimizer.OptimizeAll(hardware_info);
+
+  std::cout << "\n==> Euclidian Distance kernel, strided vs unstrided:"
+            << std::endl;
   Optimizer<DistKernelFunc> DistOptimizer;
   DistOptimizer.AddStrategy("Strided", RunStridedSearch<DistKernelFunc>,
                             &dist_strided);
@@ -194,6 +242,7 @@ int main(void) {
                             &dist_unstrided);
   DistOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
   Optimizer<MatrixMultiplyKernelFunc> MatrixMultiplyOptimizer;
   MatrixMultiplyOptimizer.AddStrategy(
       "Unstrided", RunUnstridedSearch<MatrixMultiplyKernelFunc>,

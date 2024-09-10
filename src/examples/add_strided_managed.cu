@@ -3,18 +3,9 @@
 #include <random>
 #include <vector>
 
-#include "../kernels.h"
-#include "add_strided.h"
+#include "add_strided_managed.h"
 
-__global__ void AddStridedKernel(int n, float *x, float *y) {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
-  int stride = blockDim.x * gridDim.x;
-  for (int i = index; i < n; i += stride) {
-    y[i] = x[i] + y[i];
-  }
-}
-
-void AddStrided::Setup() {
+void AddStridedManaged::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
@@ -32,17 +23,17 @@ void AddStrided::Setup() {
   }
 }
 
-void AddStrided::RunKernel(int num_blocks, int block_size) {
+void AddStridedManaged::RunKernel(int num_blocks, int block_size) {
   AddStridedKernel<<<num_blocks, block_size>>>(n_, x_, y_);
   cudaDeviceSynchronize();
 }
 
-void AddStrided::Cleanup() {
+void AddStridedManaged::Cleanup() {
   cudaFree(x_);
   cudaFree(y_);
 }
 
-int AddStrided::CheckResults() {
+int AddStridedManaged::CheckResults() {
   int num_errors = 0;
   double max_error = 0.0;
 

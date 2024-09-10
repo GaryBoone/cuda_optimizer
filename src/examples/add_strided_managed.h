@@ -13,19 +13,18 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
-__global__ void AddUnstridedKernel(int n, float *x, float *y);
-
-class AddUnstrided : public IKernel<AddKernelFunc> {
+class AddStridedManaged : public IKernel<AddKernelFunc> {
  public:
-  AddUnstrided(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
+  AddStridedManaged(int mnb, int mbs)
+      : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
     // For a length n vector sum:
     // Problem size: n, the number of add operations
     // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
-    return {"AddUnstrided", n_, 3 * n_ * sizeof(float)};
+    return {"AddStridedManaged", n_, 3 * n_ * sizeof(float)};
   }
   void (*GetKernel() const)(int, float *, float *) override {
-    return AddUnstridedKernel;
+    return AddStridedKernel;
   }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {

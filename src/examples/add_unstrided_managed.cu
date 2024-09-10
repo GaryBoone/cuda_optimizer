@@ -3,18 +3,9 @@
 #include <random>
 #include <vector>
 
-#include "../kernels.h"
-#include "add_unstrided.h"
+#include "add_unstrided_managed.h"
 
-// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
-__global__ void AddUnstridedKernel(int n, float *x, float *y) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n) {
-    y[i] = x[i] + y[i];
-  }
-}
-
-void AddUnstrided::Setup() {
+void AddUnstridedManaged::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
@@ -32,17 +23,17 @@ void AddUnstrided::Setup() {
   }
 }
 
-void AddUnstrided::RunKernel(int num_blocks, int block_size) {
+void AddUnstridedManaged::RunKernel(int num_blocks, int block_size) {
   AddUnstridedKernel<<<num_blocks, block_size>>>(n_, x_, y_);
   cudaDeviceSynchronize();
 }
 
-void AddUnstrided::Cleanup() {
+void AddUnstridedManaged::Cleanup() {
   cudaFree(x_);
   cudaFree(y_);
 }
 
-int AddUnstrided::CheckResults() {
+int AddUnstridedManaged::CheckResults() {
   int num_errors = 0;
   double max_error = 0.0;
 

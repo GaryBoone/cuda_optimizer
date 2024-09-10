@@ -7,6 +7,9 @@
 #include <random>
 #include <vector>
 
+__global__ void AddStridedKernel(int n, float *x, float *y);
+__global__ void AddUnstridedKernel(int n, float *x, float *y);
+
 // The Add kernels are defined like:
 //     __global__ void AddStridedKernel(int n, float *x, float *y);
 // so here is their shared type.

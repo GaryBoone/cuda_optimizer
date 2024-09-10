@@ -30,8 +30,10 @@ set(SOURCE_FILES
   reporter.cpp
   metrics.cpp
   kernels.cu
-  examples/add_strided.cu
-  examples/add_unstrided.cu
+  examples/add_strided_managed.cu
+  examples/add_strided_unmanaged.cu
+  examples/add_unstrided_managed.cu
+  examples/add_unstrided_unmanaged.cu
   examples/euclidian_distance_strided.cu
   examples/euclidian_distance_unstrided.cu
   examples/matrix_multiply.cu

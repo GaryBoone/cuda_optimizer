@@ -13,16 +13,15 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
-__global__ void AddStridedKernel(int n, float *x, float *y);
-
-class AddStrided : public IKernel<AddKernelFunc> {
+class AddStridedUnmanaged : public IKernel<AddKernelFunc> {
  public:
-  AddStrided(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
+  AddStridedUnmanaged(int mnb, int mbs)
+      : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
     // For a length n vector sum:
     // Problem size: n, the number of add operations
     // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
-    return {"AddStrided", n_, 3 * n_ * sizeof(float)};
+    return {"AddStridedUnmanaged", n_, 3 * n_ * sizeof(float)};
   }
   void (*GetKernel() const)(int, float *, float *) override {
     return AddStridedKernel;
@@ -40,7 +39,7 @@ class AddStrided : public IKernel<AddKernelFunc> {
 
  private:
   int n_ = 1 << 20;
-  float *x_, *y_;
+  float *x_, *y_, *h_x_, *h_y_;
   const int max_num_blocks_;
   const int max_block_size_;
 };
