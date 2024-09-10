@@ -23,7 +23,8 @@ class Optimizer {
 
   void OptimizeAll(cudaDeviceProp hardware_info) {
     for (auto& search : searches_) {
-      std::cout << "\n*******************************************" << std::endl;
+      std::cout << "\n*********************************************"
+                << std::endl;
       std::cout << "Running " << search.name << " optimization..." << std::endl;
       search.result = search.func(hardware_info, *search.kernel);
       PrintCurrentResults("Current ", search.name, search.result);
@@ -58,7 +59,12 @@ class Optimizer {
   }
 
   void PrintBestResults() const {
-    std::cout << "\n================  Results ===================" << std::endl;
+    std::cout << "\n*********************************************" << std::endl;
+    std::cout << "******** Results ******************************" << std::endl;
+    std::cout << "Among the following kernels: " << std::endl;
+    for (auto& search : searches_) {
+      std::cout << "    " << search.name << std::endl;
+    }
     PrintBestResult("Best time", Condition::kMinTime, [](const Metrics& m) {
       return m.get_metrics(Condition::kMinTime).time_ms;
     });

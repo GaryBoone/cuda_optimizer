@@ -194,6 +194,7 @@ int main(void) {
   matrix_multiply.Run(8192, 32);
 
   // Grid searches.
+  std::cout << "\n******** Comparison ***************************" << std::endl;
   std::cout << "\n==> Add kernel, strided vs unstrided:" << std::endl;
   Optimizer<AddKernelFunc> AddOptimizer;
   AddOptimizer.AddStrategy("Strided, Managed", RunStridedSearch<AddKernelFunc>,
@@ -203,6 +204,7 @@ int main(void) {
                            &add_unstrided_managed);
   AddOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n******** Comparison ***************************" << std::endl;
   std::cout << "\n==> Add kernel, strided, managed vs unmanaged:" << std::endl;
   Optimizer<AddKernelFunc> AddManUnManOptimizer;
   AddManUnManOptimizer.AddStrategy("Strided, Managed",
@@ -213,6 +215,7 @@ int main(void) {
                                    &add_strided_unmanaged);
   AddManUnManOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n******** Comparison ***************************" << std::endl;
   std::cout << "\n==> Add kernel, strided vs unstrided, managed vs unmanaged:"
             << std::endl;
   Optimizer<AddKernelFunc> AddFullOptimizer;
@@ -233,6 +236,7 @@ int main(void) {
                                &add_unstrided_unmanaged);
   AddFullOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n******** Comparison ***************************" << std::endl;
   std::cout << "\n==> Euclidian Distance kernel, strided vs unstrided:"
             << std::endl;
   Optimizer<DistKernelFunc> DistOptimizer;
@@ -242,6 +246,7 @@ int main(void) {
                             &dist_unstrided);
   DistOptimizer.OptimizeAll(hardware_info);
 
+  std::cout << "\n***********************************************" << std::endl;
   std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
   Optimizer<MatrixMultiplyKernelFunc> MatrixMultiplyOptimizer;
   MatrixMultiplyOptimizer.AddStrategy(

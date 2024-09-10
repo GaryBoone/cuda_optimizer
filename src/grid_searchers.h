@@ -68,6 +68,7 @@ Metrics RunStridedSearch(
       Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
                            occupancy};
       metrics.UpdateAll(current_metrics);
+      std::cout << ", ";
       Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
 
       if (num_blocks * block_size > kernel_info.n) {
@@ -120,6 +121,7 @@ Metrics RunUnstridedSearch(
       Data current_metrics{num_blocks, block_size, time_in_ms, bandwidth,
                            occupancy};
       metrics.UpdateAll(current_metrics);
+      std::cout << ", ";
       Reporter::PrintResultsData(current_metrics, stats_res->NumSamples());
     }
   }

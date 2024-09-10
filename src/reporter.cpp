@@ -51,7 +51,7 @@ void Reporter::PrintResultsHeader(int num_blocks, int block_size) {
 }
 
 void Reporter::PrintResultsData(Data data, std::optional<int> num_samples) {
-  std::cout << ", occupancy: " << std::fixed << std::setprecision(2)
+  std::cout << "occupancy: " << std::fixed << std::setprecision(2)
             << std::setw(5) << data.occupancy;
 
   std::cout << ", bandwidth: " << std::setw(10)
@@ -70,5 +70,7 @@ void Reporter::PrintResultsData(Data data, std::optional<int> num_samples) {
 void Reporter::PrintResults(std::string prefix, Data data) {
   std::cout << prefix;
   Reporter::PrintResultsHeader(data.num_blocks, data.block_size);
+  std::cout << std::endl;
+  std::cout << "                  ";
   PrintResultsData(data, std::nullopt);
 }
