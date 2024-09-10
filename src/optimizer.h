@@ -6,47 +6,88 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
-class OptimizerBase {
- public:
-  virtual ~OptimizerBase() = default;
-  virtual void Optimize(cudaDeviceProp hardware_info) const = 0;
-  const std::string& GetName() const { return name_; }
-
- protected:
-  explicit OptimizerBase(std::string name) : name_(std::move(name)) {}
-
- private:
-  std::string name_;
-};
+#include "./metrics.h"
+#include "./reporter.h"
 
 template <typename KernelFunc>
-class Optimizer : public OptimizerBase {
+class Optimizer {
  public:
-  using VariationFunction = void (*)(cudaDeviceProp, IKernel<KernelFunc>&);
+  using VariationFunction = Metrics (*)(cudaDeviceProp, IKernel<KernelFunc>&);
 
-  Optimizer(std::string name, VariationFunction func,
-            std::unique_ptr<IKernel<KernelFunc>> kernel)
-      : OptimizerBase(std::move(name)),
-        variation_func_(func),
-        kernel_(std::move(kernel)) {}
+  Optimizer() : name_("Multi-strategy Optimizer") {}
 
-  void Optimize(cudaDeviceProp hardware_info) const override {
-    std::cout << "Running " << GetName() << " optimization..." << std::endl;
-    // variation_func_(hardware_info,
-    // *static_cast<IKernel<KernelFunc>*>(kernel));
-    variation_func_(hardware_info, *kernel_);
+  explicit Optimizer(std::string name) : name_(std::move(name)) {}
+
+  void OptimizeAll(cudaDeviceProp hardware_info) {
+    for (auto& strategy : strategies_) {
+      std::cout << "Running " << strategy.name << " optimization..."
+                << std::endl;
+      strategy.result = strategy.func(hardware_info, *strategy.kernel);
+      PrintCurrentResults("Current ", strategy.name, strategy.result);
+    }
+    PrintBestResults();
   }
 
- private:
-  VariationFunction variation_func_;
-  std::unique_ptr<IKernel<KernelFunc>> kernel_;
-};
+  void AddStrategy(const std::string& name, VariationFunction func,
+                   IKernel<KernelFunc>* kernel) {
+    strategies_.push_back(
+        {name, func, std::unique_ptr<IKernel<KernelFunc>>(kernel)});
+  }
 
-// Helper function to create an optimizer
-template <typename KernelFunc>
-std::unique_ptr<OptimizerBase> CreateOptimizer(
-    const std::string& name, void (*func)(cudaDeviceProp, IKernel<KernelFunc>&),
-    std::unique_ptr<IKernel<KernelFunc>> kernel) {
-  return std::make_unique<Optimizer<KernelFunc>>(name, func, std::move(kernel));
-}
+  const std::string& GetName() const { return name_; }
+
+ private:
+  struct Strategy {
+    std::string name;
+    VariationFunction func;
+    std::unique_ptr<IKernel<KernelFunc>> kernel;
+    Metrics result;
+  };
+
+  void PrintCurrentResults(std::string header, std::string name,
+                           Metrics result) {
+    Reporter::PrintResults(header + name + " best      time: ",
+                           result.get_metrics(Condition::kMinTime));
+    Reporter::PrintResults(header + name + " best  bandwith: ",
+                           result.get_metrics(Condition::kMaxBandwidth));
+    Reporter::PrintResults(header + name + " best occupancy: ",
+                           result.get_metrics(Condition::kMaxOccupancy));
+  }
+
+  void PrintBestResults() const {
+    std::cout << "\n================  Results ===================" << std::endl;
+    PrintBestResult("Best time", Condition::kMinTime, [](const Metrics& m) {
+      return m.get_metrics(Condition::kMinTime).time_ms;
+    });
+    PrintBestResult("Best bandwidth", Condition::kMaxBandwidth,
+                    [](const Metrics& m) {
+                      return m.get_metrics(Condition::kMaxBandwidth).bandwidth;
+                    });
+    PrintBestResult("Best occupancy", Condition::kMaxOccupancy,
+                    [](const Metrics& m) {
+                      return m.get_metrics(Condition::kMaxOccupancy).occupancy;
+                    });
+  }
+
+  template <typename Getter>
+  void PrintBestResult(const std::string& label, Condition condition,
+                       Getter getter) const {
+    auto it = std::max_element(
+        strategies_.begin(), strategies_.end(),
+        [condition](const Strategy& a, const Strategy& b) {
+          return !a.result.IsBetter(a.result.get_metrics(condition),
+                                    b.result.get_metrics(condition), condition);
+        });
+
+    if (it != strategies_.end()) {
+      std::cout << label << " achieved by " << it->name
+                << " kernel:" << std::endl;
+      Reporter::PrintResults("  ", it->result.get_metrics(condition));
+    }
+  }
+
+  std::string name_;
+  std::vector<Strategy> strategies_;
+};

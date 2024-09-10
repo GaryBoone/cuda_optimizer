@@ -159,8 +159,8 @@ void PrintResults(std::string header, Metrics metrics) {
 }
 
 template <typename KernelFunc>
-void RunStrideVariations(cudaDeviceProp hardware_info,
-                         IKernel<KernelFunc> &ex) {
+Metrics RunStrideVariations(cudaDeviceProp hardware_info,
+                            IKernel<KernelFunc> &ex) {
   Metrics metrics;
 
   int num_blocks, block_size;
@@ -212,11 +212,12 @@ void RunStrideVariations(cudaDeviceProp hardware_info,
     PrintResults(kernel_info.name + " current", metrics);
   }
   PrintResults(kernel_info.name + " final", metrics);
+  return metrics;
 }
 
 template <typename KernelFunc>
-void RunUnstridedVariations(cudaDeviceProp hardware_info,
-                            IKernel<KernelFunc> &ex) {
+Metrics RunUnstridedVariations(cudaDeviceProp hardware_info,
+                               IKernel<KernelFunc> &ex) {
   Metrics metrics;
 
   int num_blocks, block_size;
@@ -257,6 +258,7 @@ void RunUnstridedVariations(cudaDeviceProp hardware_info,
     }
   }
   PrintResults(kernel_info.name + " final", metrics);
+  return metrics;
 }
 
 int main(void) {
@@ -275,16 +277,19 @@ int main(void) {
 
   using KernelFunc = void (*)(int, float *, float *);
 
-  // Create a kernel
-  auto strided_kernel =
-      std::make_unique<AddStrided>(max_num_blocks, max_block_size);
+  Optimizer<KernelFunc> optimizer;
 
-  // Create an optimizer with the kernel
-  auto optimizer = CreateOptimizer<KernelFunc>(
-      "Strided", RunStrideVariations<KernelFunc>, std::move(strided_kernel));
+  // Create kernels
+  auto strided_kernel = new AddStrided(max_num_blocks, max_block_size);
+  auto unstrided_kernel = new AddUnstrided(max_num_blocks, max_block_size);
 
-  optimizer->Optimize(hardware_info);
+  // Add strategies to the optimizer.
+  optimizer.AddStrategy("Strided", RunStrideVariations<KernelFunc>,
+                        strided_kernel);
+  optimizer.AddStrategy("Unstrided", RunUnstridedVariations<KernelFunc>,
+                        unstrided_kernel);
 
+  optimizer.OptimizeAll(hardware_info);
   exit(0);
   ///////////////////////////////////////////
 
