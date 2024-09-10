@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -21,31 +22,46 @@ class Optimizer {
 
   explicit Optimizer(std::string name) : name_(std::move(name)) {}
 
-  void OptimizeAll(cudaDeviceProp hardware_info) {
-    for (auto& search : searches_) {
-      std::cout << "\n*********************************************"
-                << std::endl;
-      std::cout << "Running " << search.name << " optimization..." << std::endl;
-      search.result = search.func(hardware_info, *search.kernel);
-      PrintCurrentResults("Current ", search.name, search.result);
-    }
-    PrintBestResults();
-  }
-
   void AddStrategy(const std::string& name, SearchFunction func,
                    IKernel<KernelFunc>* kernel) {
-    searches_.push_back(
-        {name, func, std::unique_ptr<IKernel<KernelFunc>>(kernel)});
+    searches_[name] = {name, func,
+                       std::unique_ptr<IKernel<KernelFunc>>(kernel)};
+  }
+  void CreateSet(const std::string& set_name,
+                 const std::vector<std::string>& strategy_names) {
+    sets_[set_name] = strategy_names;
   }
 
   const std::string& GetName() const { return name_; }
 
+  void OptimizeSet(const std::string& set_name, cudaDeviceProp hardware_info) {
+    std::cout << "Running optimization set: " << set_name << std::endl;
+
+    const auto& strategy_names = sets_[set_name];
+    for (const auto& name : strategy_names) {
+      auto& search = searches_[name];
+      if (!search.result.has_value()) {
+        std::cout << "Running " << name << " optimization..." << std::endl;
+        search.result = search.func(hardware_info, *search.kernel);
+      } else {
+        std::cout << "Using cached results for " << name << std::endl;
+      }
+      PrintCurrentResults("Current ", name, *search.result);
+    }
+    PrintBestResults(set_name);
+  }
+
  private:
+  struct Strategy {
+    SearchFunction func;
+    std::unique_ptr<IKernel<KernelFunc>> kernel;
+  };
+
   struct Search {
     std::string name;
     SearchFunction func;
     std::unique_ptr<IKernel<KernelFunc>> kernel;
-    Metrics result;
+    std::optional<Metrics> result;
   };
 
   void PrintCurrentResults(std::string header, std::string name,
@@ -58,43 +74,48 @@ class Optimizer {
                            result.get_metrics(Condition::kMaxOccupancy));
   }
 
-  void PrintBestResults() const {
+  void PrintBestResults(const std::string& set_name) const {
     std::cout << "\n*********************************************" << std::endl;
-    std::cout << "******** Results ******************************" << std::endl;
+    std::cout << "*** Results for set: " << set_name << " *******" << std::endl;
     std::cout << "Among the following kernels: " << std::endl;
-    for (auto& search : searches_) {
-      std::cout << "    " << search.name << std::endl;
+    for (const auto& name : sets_.at(set_name)) {
+      std::cout << "    " << name << std::endl;
     }
-    PrintBestResult("Best time", Condition::kMinTime, [](const Metrics& m) {
-      return m.get_metrics(Condition::kMinTime).time_ms;
-    });
-    PrintBestResult("Best bandwidth", Condition::kMaxBandwidth,
+    PrintBestResult(set_name, "Best time", Condition::kMinTime,
+                    [](const Metrics& m) {
+                      return m.get_metrics(Condition::kMinTime).time_ms;
+                    });
+    PrintBestResult(set_name, "Best bandwidth", Condition::kMaxBandwidth,
                     [](const Metrics& m) {
                       return m.get_metrics(Condition::kMaxBandwidth).bandwidth;
                     });
-    PrintBestResult("Best occupancy", Condition::kMaxOccupancy,
+    PrintBestResult(set_name, "Best occupancy", Condition::kMaxOccupancy,
                     [](const Metrics& m) {
                       return m.get_metrics(Condition::kMaxOccupancy).occupancy;
                     });
   }
 
   template <typename Getter>
-  void PrintBestResult(const std::string& label, Condition condition,
-                       Getter getter) const {
+  void PrintBestResult(const std::string& set_name, const std::string& label,
+                       Condition condition, Getter getter) const {
+    const auto& strategy_names = sets_.at(set_name);
     auto it = std::max_element(
-        searches_.begin(), searches_.end(),
-        [condition](const Search& a, const Search& b) {
-          return !a.result.IsBetter(a.result.get_metrics(condition),
-                                    b.result.get_metrics(condition), condition);
+        strategy_names.begin(), strategy_names.end(),
+        [this, condition](const std::string& a, const std::string& b) {
+          const auto& result_a = searches_.at(a).result.value();
+          const auto& result_b = searches_.at(b).result.value();
+          return !result_a.IsBetter(result_a.get_metrics(condition),
+                                    result_b.get_metrics(condition), condition);
         });
 
-    if (it != searches_.end()) {
-      std::cout << label << " achieved by " << it->name
-                << " kernel:" << std::endl;
-      Reporter::PrintResults("  ", it->result.get_metrics(condition));
+    if (it != strategy_names.end()) {
+      std::cout << label << " achieved by " << *it << " kernel:" << std::endl;
+      Reporter::PrintResults(
+          "  ", searches_.at(*it).result.value().get_metrics(condition));
     }
   }
 
   std::string name_;
-  std::vector<Search> searches_;
+  std::map<std::string, Search> searches_;
+  std::map<std::string, std::vector<std::string>> sets_;
 };

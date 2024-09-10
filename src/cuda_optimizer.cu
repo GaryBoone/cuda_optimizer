@@ -194,65 +194,51 @@ int main(void) {
   matrix_multiply.Run(8192, 32);
 
   // Grid searches.
-  std::cout << "\n******** Comparison ***************************" << std::endl;
-  std::cout << "\n==> Add kernel, strided vs unstrided:" << std::endl;
-  Optimizer<AddKernelFunc> AddOptimizer;
-  AddOptimizer.AddStrategy("Strided, Managed", RunStridedSearch<AddKernelFunc>,
-                           &add_strided_managed);
-  AddOptimizer.AddStrategy("Unstrided, Managed",
-                           RunUnstridedSearch<AddKernelFunc>,
-                           &add_unstrided_managed);
-  AddOptimizer.OptimizeAll(hardware_info);
+  Optimizer<AddKernelFunc> optimizer;
+  optimizer.AddStrategy("Strided, Managed", RunStridedSearch<AddKernelFunc>,
+                        &add_strided_managed);
+  optimizer.AddStrategy("Unstrided, Managed", RunUnstridedSearch<AddKernelFunc>,
+                        &add_unstrided_managed);
+  optimizer.AddStrategy("Strided, Unmanaged", RunStridedSearch<AddKernelFunc>,
+                        &add_strided_unmanaged);
+  optimizer.AddStrategy("Unstrided, Unmanaged",
+                        RunUnstridedSearch<AddKernelFunc>,
+                        &add_unstrided_unmanaged);
 
   std::cout << "\n******** Comparison ***************************" << std::endl;
-  std::cout << "\n==> Add kernel, strided, managed vs unmanaged:" << std::endl;
-  Optimizer<AddKernelFunc> AddManUnManOptimizer;
-  AddManUnManOptimizer.AddStrategy("Strided, Managed",
-                                   RunStridedSearch<AddKernelFunc>,
-                                   &add_strided_managed);
-  AddManUnManOptimizer.AddStrategy("Strided, Unmanaged",
-                                   RunStridedSearch<AddKernelFunc>,
-                                   &add_strided_unmanaged);
-  AddManUnManOptimizer.OptimizeAll(hardware_info);
+  auto name = "Add kernel, strided vs unstrided [both managed]";
+  optimizer.CreateSet(name, {"Strided, Managed", "Unstrided, Managed"});
+  optimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n******** Comparison ***************************" << std::endl;
-  std::cout << "\n==> Add kernel, strided vs unstrided, managed vs unmanaged:"
-            << std::endl;
-  Optimizer<AddKernelFunc> AddFullOptimizer;
-  AddFullOptimizer.AddStrategy("Strided, Managed",
-                               RunStridedSearch<AddKernelFunc>,
-                               &add_strided_managed);
-  AddFullOptimizer.AddStrategy("Strided, Unmanaged",
-                               RunStridedSearch<AddKernelFunc>,
-                               &add_strided_unmanaged);
-  AddFullOptimizer.AddStrategy("Unstrided, Managed",
-                               RunUnstridedSearch<AddKernelFunc>,
-                               &add_unstrided_managed);
-  AddFullOptimizer.AddStrategy("Unstrided, Managed",
-                               RunUnstridedSearch<AddKernelFunc>,
-                               &add_unstrided_managed);
-  AddFullOptimizer.AddStrategy("Unstrided, Unmanaged",
-                               RunUnstridedSearch<AddKernelFunc>,
-                               &add_unstrided_unmanaged);
-  AddFullOptimizer.OptimizeAll(hardware_info);
+  name = "Add kernel, managed vs unmanaged [both strided]";
+  optimizer.CreateSet(name, {"Strided, Managed", "Strided, Unmanaged"});
+  optimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n******** Comparison ***************************" << std::endl;
-  std::cout << "\n==> Euclidian Distance kernel, strided vs unstrided:"
-            << std::endl;
+  name = "Add kernel, strided/unstrided and managed/unmanaged";
+  optimizer.CreateSet(name, {"Strided, Managed", "Unstrided, Managed",
+                             "Strided, Unmanaged", "Unstrided, Unmanaged"});
+  optimizer.OptimizeSet(name, hardware_info);
+
+  std::cout << "\n******** Comparison ***************************" << std::endl;
   Optimizer<DistKernelFunc> DistOptimizer;
   DistOptimizer.AddStrategy("Strided", RunStridedSearch<DistKernelFunc>,
                             &dist_strided);
   DistOptimizer.AddStrategy("Unstrided", RunUnstridedSearch<DistKernelFunc>,
                             &dist_unstrided);
-  DistOptimizer.OptimizeAll(hardware_info);
+  optimizer.CreateSet(name, {"Strided", "Unstrided"});
+  name = "Euclidian Distance kernel, strided vs unstrided";
+  DistOptimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n***********************************************" << std::endl;
-  std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
-  Optimizer<MatrixMultiplyKernelFunc> MatrixMultiplyOptimizer;
-  MatrixMultiplyOptimizer.AddStrategy(
+  Optimizer<MatrixMultiplyKernelFunc> matrix_multiply_optimizer;
+  matrix_multiply_optimizer.AddStrategy(
       "Unstrided", RunUnstridedSearch<MatrixMultiplyKernelFunc>,
       &matrix_multiply);
-  MatrixMultiplyOptimizer.OptimizeAll(hardware_info);
+  optimizer.CreateSet(name, {"Unstrided"});
+  name = "Matrix Multiply kernel";
+  matrix_multiply_optimizer.OptimizeSet(name, hardware_info);
 
   return 0;
 }
