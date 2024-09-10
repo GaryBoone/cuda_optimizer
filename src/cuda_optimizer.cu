@@ -5,16 +5,15 @@
 #include <string>
 
 #include "adaptive_sampler.h"
-#include "example.h"
 #include "examples/add_strided.h"
 #include "examples/add_unstrided.h"
 #include "examples/euclidian_distance_strided.h"
 #include "examples/euclidian_distance_unstrided.h"
 #include "examples/matrix_multiply.h"
+#include "grid_searchers.h"
+#include "i_kernel.h"
 #include "kernels.h"
-#include "metrics.h"
 #include "optimizer.h"
-#include "reporter.h"
 #include "timer.h"
 
 // Build:
@@ -24,8 +23,6 @@
 // $ ./build/src/cuda_optimizer
 // Test:
 // $ ./build/tests/test_app
-
-const double kRequiredPrecision = 0.35;
 
 template <typename KernelFunc>
 float TimeKernel(IKernel<KernelFunc> &ex, int num_blocks, int block_size) {
@@ -182,24 +179,24 @@ int main(void) {
   MatrixMultiply matrix_multiply(max_num_blocks, max_block_size);
   matrix_multiply.Run(8192, 32);
 
-  // Variation runs.
+  // Grid searches.
   Optimizer<AddKernelFunc> AddOptimizer;
-  AddOptimizer.AddStrategy("Strided", RunStrideVariations<AddKernelFunc>,
+  AddOptimizer.AddStrategy("Strided", RunStridedSearch<AddKernelFunc>,
                            &add_strided);
-  AddOptimizer.AddStrategy("Unstrided", RunUnstridedVariations<AddKernelFunc>,
+  AddOptimizer.AddStrategy("Unstrided", RunUnstridedSearch<AddKernelFunc>,
                            &add_unstrided);
   AddOptimizer.OptimizeAll(hardware_info);
 
   Optimizer<DistKernelFunc> DistOptimizer;
-  DistOptimizer.AddStrategy("Strided", RunStrideVariations<DistKernelFunc>,
+  DistOptimizer.AddStrategy("Strided", RunStridedSearch<DistKernelFunc>,
                             &dist_strided);
-  DistOptimizer.AddStrategy("Unstrided", RunUnstridedVariations<DistKernelFunc>,
+  DistOptimizer.AddStrategy("Unstrided", RunUnstridedSearch<DistKernelFunc>,
                             &dist_unstrided);
   DistOptimizer.OptimizeAll(hardware_info);
 
   Optimizer<MatrixMultiplyKernelFunc> MatrixMultiplyOptimizer;
   MatrixMultiplyOptimizer.AddStrategy(
-      "Unstrided", RunUnstridedVariations<MatrixMultiplyKernelFunc>,
+      "Unstrided", RunUnstridedSearch<MatrixMultiplyKernelFunc>,
       &matrix_multiply);
   MatrixMultiplyOptimizer.OptimizeAll(hardware_info);
 

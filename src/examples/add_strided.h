@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "../example.h"
+#include "../i_kernel.h"
 #include "../kernels.h"
 
 __global__ void AddStridedKernel(int n, float *x, float *y);

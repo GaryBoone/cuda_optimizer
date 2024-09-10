@@ -15,35 +15,34 @@
 template <typename KernelFunc>
 class Optimizer {
  public:
-  using VariationFunction = Metrics (*)(cudaDeviceProp, IKernel<KernelFunc>&);
+  using SearchFunction = Metrics (*)(cudaDeviceProp, IKernel<KernelFunc>&);
 
-  Optimizer() : name_("Multi-strategy Optimizer") {}
+  Optimizer() : name_("Multi-search Optimizer") {}
 
   explicit Optimizer(std::string name) : name_(std::move(name)) {}
 
   void OptimizeAll(cudaDeviceProp hardware_info) {
-    for (auto& strategy : strategies_) {
+    for (auto& search : searches_) {
       std::cout << "\n*******************************************" << std::endl;
-      std::cout << "Running " << strategy.name << " optimization..."
-                << std::endl;
-      strategy.result = strategy.func(hardware_info, *strategy.kernel);
-      PrintCurrentResults("Current ", strategy.name, strategy.result);
+      std::cout << "Running " << search.name << " optimization..." << std::endl;
+      search.result = search.func(hardware_info, *search.kernel);
+      PrintCurrentResults("Current ", search.name, search.result);
     }
     PrintBestResults();
   }
 
-  void AddStrategy(const std::string& name, VariationFunction func,
+  void AddStrategy(const std::string& name, SearchFunction func,
                    IKernel<KernelFunc>* kernel) {
-    strategies_.push_back(
+    searches_.push_back(
         {name, func, std::unique_ptr<IKernel<KernelFunc>>(kernel)});
   }
 
   const std::string& GetName() const { return name_; }
 
  private:
-  struct Strategy {
+  struct Search {
     std::string name;
-    VariationFunction func;
+    SearchFunction func;
     std::unique_ptr<IKernel<KernelFunc>> kernel;
     Metrics result;
   };
@@ -77,13 +76,13 @@ class Optimizer {
   void PrintBestResult(const std::string& label, Condition condition,
                        Getter getter) const {
     auto it = std::max_element(
-        strategies_.begin(), strategies_.end(),
-        [condition](const Strategy& a, const Strategy& b) {
+        searches_.begin(), searches_.end(),
+        [condition](const Search& a, const Search& b) {
           return !a.result.IsBetter(a.result.get_metrics(condition),
                                     b.result.get_metrics(condition), condition);
         });
 
-    if (it != strategies_.end()) {
+    if (it != searches_.end()) {
       std::cout << label << " achieved by " << it->name
                 << " kernel:" << std::endl;
       Reporter::PrintResults("  ", it->result.get_metrics(condition));
@@ -91,5 +90,5 @@ class Optimizer {
   }
 
   std::string name_;
-  std::vector<Strategy> strategies_;
+  std::vector<Search> searches_;
 };
