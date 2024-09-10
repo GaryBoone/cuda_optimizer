@@ -16,8 +16,7 @@
 __global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
                                                  float *distance);
 
-class EuclidianDistanceUnstrided
-    : public IKernel<void (*)(int, float2 *, float2 *, float *)> {
+class EuclidianDistanceUnstrided : public IKernel<DistKernelFunc> {
  public:
   EuclidianDistanceUnstrided(int mnb, int mbs)
       : max_num_blocks_(mnb), max_block_size_(mbs) {}

@@ -273,38 +273,18 @@ int main(void) {
   std::cout << "  max_block_size: "
             << Reporter::FormatWithCommas(max_block_size) << std::endl;
 
-  ///////////////////////////////////////////
-
-  using KernelFunc = void (*)(int, float *, float *);
-
-  Optimizer<KernelFunc> optimizer;
-
-  // Create kernels
-  auto strided_kernel = new AddStrided(max_num_blocks, max_block_size);
-  auto unstrided_kernel = new AddUnstrided(max_num_blocks, max_block_size);
-
-  // Add strategies to the optimizer.
-  optimizer.AddStrategy("Strided", RunStrideVariations<KernelFunc>,
-                        strided_kernel);
-  optimizer.AddStrategy("Unstrided", RunUnstridedVariations<KernelFunc>,
-                        unstrided_kernel);
-
-  optimizer.OptimizeAll(hardware_info);
-  exit(0);
-  ///////////////////////////////////////////
-
   // Individual runs.
   std::cout << "\n==> Add with stride kernel:" << std::endl;
-  AddStrided add(max_num_blocks, max_block_size);
-  add.Run(4096, 256);
-
-  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
-  EuclidianDistanceStrided dist(max_num_blocks, max_block_size);
-  dist.Run(4096, 256);
+  AddStrided add_strided(max_num_blocks, max_block_size);
+  add_strided.Run(4096, 256);
 
   std::cout << "\n==> Add without stride kernel:" << std::endl;
   AddUnstrided add_unstrided(max_num_blocks, max_block_size);
   add_unstrided.Run(4096, 256);
+
+  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
+  EuclidianDistanceStrided dist_strided(max_num_blocks, max_block_size);
+  dist_strided.Run(4096, 256);
 
   std::cout << "\n==> Euclidian Distance without stride kernel:" << std::endl;
   EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
@@ -315,20 +295,25 @@ int main(void) {
   matrix_multiply.Run(8192, 32);
 
   // Variation runs.
-  std::cout << "\n==> Optimizing Add with stride:" << std::endl;
-  RunStrideVariations(hardware_info, add);
+  Optimizer<AddKernelFunc> AddOptimizer;
+  AddOptimizer.AddStrategy("Strided", RunStrideVariations<AddKernelFunc>,
+                           &add_strided);
+  AddOptimizer.AddStrategy("Unstrided", RunUnstridedVariations<AddKernelFunc>,
+                           &add_unstrided);
+  AddOptimizer.OptimizeAll(hardware_info);
 
-  std::cout << "\n==> Optimizing Euclidian Distance with stride:" << std::endl;
-  RunStrideVariations(hardware_info, dist);
+  Optimizer<DistKernelFunc> DistOptimizer;
+  DistOptimizer.AddStrategy("Strided", RunStrideVariations<DistKernelFunc>,
+                            &dist_strided);
+  DistOptimizer.AddStrategy("Unstrided", RunUnstridedVariations<DistKernelFunc>,
+                            &dist_unstrided);
+  DistOptimizer.OptimizeAll(hardware_info);
 
-  std::cout << "\n==> Optimizing Add without stride:" << std::endl;
-  RunUnstridedVariations(hardware_info, add_unstrided);
-
-  std::cout << "\n==> Optimizing Euclidian Distance w/out stride:" << std::endl;
-  RunUnstridedVariations(hardware_info, dist_unstrided);
-
-  std::cout << "\n==> Optimizing Matrix Multiply:" << std::endl;
-  RunUnstridedVariations(hardware_info, matrix_multiply);
+  Optimizer<MatrixMultiplyKernelFunc> MatrixMultiplyOptimizer;
+  MatrixMultiplyOptimizer.AddStrategy(
+      "Unstrided", RunUnstridedVariations<MatrixMultiplyKernelFunc>,
+      &matrix_multiply);
+  MatrixMultiplyOptimizer.OptimizeAll(hardware_info);
 
   return 0;
 }

@@ -13,10 +13,9 @@
 #include "../example.h"
 #include "../kernels.h"
 
-// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
 __global__ void AddWithoutStrideKernel(int n, float *x, float *y);
 
-class AddUnstrided : public IKernel<void (*)(int, float *, float *)> {
+class AddUnstrided : public IKernel<AddKernelFunc> {
  public:
   AddUnstrided(int mnb, int mbs) : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {

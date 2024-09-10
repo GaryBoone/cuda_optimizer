@@ -13,11 +13,9 @@
 #include "../example.h"
 #include "../kernels.h"
 
-// Bandwidth: (2 reads + 1 write) * n * sizeof(float)
 __global__ void MatrixMultiplyKernel(int N, float *A, float *B, float *C);
 
-class MatrixMultiply
-    : public IKernel<void (*)(int, float *, float *, float *)> {
+class MatrixMultiply : public IKernel<MatrixMultiplyKernelFunc> {
  public:
   MatrixMultiply(int mnb, int mbs)
       : max_num_blocks_(mnb), max_block_size_(mbs) {}

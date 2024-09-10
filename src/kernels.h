@@ -7,12 +7,30 @@
 #include <random>
 #include <vector>
 
-// Matrices are stored in row-major order:
+// The Add kernels are defined like:
+//     __global__ void AddStridedKernel(int n, float *x, float *y);
+// so here is their shared type.
+using AddKernelFunc = void (*)(int, float *, float *);
+
+// The Euclidian Distance kernels are defined like:
+//     __global__ void EuclidianDistanceStridedKernel(int n, float2 *x,
+//                                                    float2 *y,
+//                                                    float *distance);
+// so here is their shared type.
+using DistKernelFunc = void (*)(int, float2 *, float2 *, float *);
+
+// The Matrix Multiply kernels are defined like:
+//    __global__ void MatrixMultiplyKernel(int N, float *A, float *B, float *C);
+// so here is their shared type.
+using MatrixMultiplyKernelFunc = void (*)(int, float *, float *, float *);
+
+// Matrices, used in the the matrix multiply kernel, are stored in row-major
+// order:
 // M(row, col) = *(M.elements + row * M.width + col)
 typedef struct {
   int width;
   int height;
-  float* elements;
+  float *elements;
 } Matrix;
 
 // Utility functions.

@@ -22,6 +22,7 @@ class Optimizer {
 
   void OptimizeAll(cudaDeviceProp hardware_info) {
     for (auto& strategy : strategies_) {
+      std::cout << "\n*******************************************" << std::endl;
       std::cout << "Running " << strategy.name << " optimization..."
                 << std::endl;
       strategy.result = strategy.func(hardware_info, *strategy.kernel);
