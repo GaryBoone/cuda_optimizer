@@ -7,7 +7,7 @@
 #include "add_unstrided.h"
 
 // Bandwidth: (2 reads + 1 write) * n * sizeof(float)
-__global__ void AddWithoutStrideKernel(int n, float *x, float *y) {
+__global__ void AddUnstridedKernel(int n, float *x, float *y) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     y[i] = x[i] + y[i];
@@ -33,7 +33,7 @@ void AddUnstrided::Setup() {
 }
 
 void AddUnstrided::RunKernel(int num_blocks, int block_size) {
-  AddWithoutStrideKernel<<<num_blocks, block_size>>>(n_, x_, y_);
+  AddUnstridedKernel<<<num_blocks, block_size>>>(n_, x_, y_);
   cudaDeviceSynchronize();
 }
 

@@ -13,7 +13,7 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
-__global__ void AddWithoutStrideKernel(int n, float *x, float *y);
+__global__ void AddUnstridedKernel(int n, float *x, float *y);
 
 class AddUnstrided : public IKernel<AddKernelFunc> {
  public:
@@ -25,7 +25,7 @@ class AddUnstrided : public IKernel<AddKernelFunc> {
     return {"AddUnstrided", n_, 3 * n_ * sizeof(float)};
   }
   void (*GetKernel() const)(int, float *, float *) override {
-    return AddWithoutStrideKernel;
+    return AddUnstridedKernel;
   }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {
