@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "./grid_searchers.h"
 #include "./metrics.h"
 #include "./reporter.h"
 
