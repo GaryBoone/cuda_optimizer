@@ -59,13 +59,15 @@ Run:
 
 The output is long, so it's useful to capture the output for review:
 ```bash
-$ ./build/src/cuda_optimizer | tee /tmp/opt_out.txt
-$ less /tmp/opt_out.txt
+$ ./build/src/cuda_optimizer | tee /tmp/cuda_optimizer_out.txt
+$ less /tmp/cuda_optimizer_out.txt
 ```
 ## Optimization
-Groups of kernels can be created in the Optimizer and run as a set to make comparisons. For example, to compare strided vs unstrided variations of a Euclidian Distance kernel, we can do:
+Groups of kernels can be created in the Optimizer and run as a set to make
+comparisons. For example, to compare strided vs unstrided variations of a
+Euclidian Distance kernel, we can do:
 
-```C++
+```c++
   // Make an optimizer for the DistKernelFunc.
   Optimizer<DistKernelFunc> DistOptimizer;
 
@@ -87,16 +89,39 @@ Groups of kernels can be created in the Optimizer and run as a set to make compa
 ## Understanding the output
 
 As it runs, `cuda_optimizer` outputs lines like:
-```bash
+```
 <<numBlocks, blockSize>> = <<     1,024,   352>>, occupancy:  0.92, bandwidth:      8.32GB/s, time:    1.51 ms (over 34 runs)
 ```
-This line shows a parameter variation over `numBlocks` and `blockSize` in which the kernel, in this case a vector add with striding, is being called like:
-```bash
+This line shows a parameter variation over `numBlocks` and `blockSize` in which
+the kernel, in this case a vector add with striding, is being called like:
+```
 AddStrided<<1024, 352>>(n, x, y);
 ```
-The line shows that the result had an occupancy of  92%, bandwidth of 8.32GB/s, and an average run time of 1.51 ms. The problem size is 1<<20, or 1,048,576, specified in the `add_strided_managed.h` file.
+The line shows that the result had an occupancy of  92%, bandwidth of 8.32GB/s,
+and an average run time of 1.51 ms. The problem size is 1<<20, or 1,048,576,
+specified in the `add_strided_managed.h` file.
 
-At the end of a run, the
+At the end of a run, the final results are printed:
+```
+ Results for set: Add kernel, strided vs unstrided [both managed] *******
+Among the following kernels:
+    Strided, Managed
+    Unstrided, Managed
+Best time achieved by Unstrided, Managed kernel:
+  <<numBlocks, blockSize>> = <<     4,096,   256>>
+                  occupancy:  1.00, bandwidth:     17.88GB/s, time:    0.70 ms
+Best bandwidth achieved by Unstrided, Managed kernel:
+  <<numBlocks, blockSize>> = <<     4,096,   256>>
+                  occupancy:  1.00, bandwidth:     17.88GB/s, time:    0.70 ms
+Best occupancy achieved by Unstrided, Managed kernel:
+  <<numBlocks, blockSize>> = <<     4,096,   256>>
+                  occupancy:  1.00, bandwidth:     17.88GB/s, time:    0.70 ms
+
+```
+Here we see that, counter to expectations, striding was not the optimal loop
+style. Instead the Unstrided version was fastest and the highest bandwidth in
+the case where both used Cuda's managed memory feature. Unsurprisingly, the best
+results were achieved with 100% occupancy.
 
 ## Timing
 Each run is repeated over sufficient runs achieve a given level of statistical
@@ -104,15 +129,20 @@ accuracy. Specifically, it continues sampling until the margin of error (at 95%
 confidence) is less than a specified fraction (`relative_precision_`) of the
 sample standard deviation.
 
-For example, in a normal curve, ~0.68% of the population is found within +/- 1 standard deviation of the mean. The timer used in `cuda_optimizer` allows the developer to set this precision value to balance accuracy with test length. In practice, a required precision of 0.35 is satisfied with about 34 runs.
+For example, in a normal curve, ~0.68% of the population is found within +/- 1
+standard deviation of the mean. The timer used in `cuda_optimizer` allows the
+developer to set this precision value to balance accuracy with test length. In
+practice, a required precision of 0.35 is satisfied with about 34 runs.
 
 ## Architecture
 The code is organized into a series of layers:
 
-* Optimizer: collects examples into sets that can be run and compared. For example, we can compared managed to unmanaged, strided to unstrided, or all together.
+* Optimizer: collects examples into sets that can be run and compared. For
+  example, we can compared managed to unmanaged, strided to unstrided, or all
+  together.
 
 * Examples: Implement the `IKernel` interface, templated on the kernel.
-```C++
+```c++
 class AddStridedManaged : public IKernel<AddKernelFunc> {
 ```
 The `IKernel` interface provides `Setup()`, `RunKernel()`, `Cleanup()`, and `CheckResults()`. Examples also include the generators use for grid searching over their parameters.
@@ -226,12 +256,20 @@ int AddStridedManaged::CheckResults() {
 
 } // namespace cuda_optimizer
 ```
+
 The kernel has been moved to `kernels.cu`/`kernels.h`. Note that `numBlocks` and
 `blockSize` become inputs determined by the call to `RunKernel()` or by the
 optimizers.
 
 ## Readability
 The project follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html). Note that the CUDA function calls start with lowercase letters, while Google style is to start function calls with Capital letters. This difference makes it easy to distinguish the CUDA calls.
+
+## TODO
+* Add an output comparison matrix. It would show the relative speed ratio
+  between any two strategies in an n-way comparison. So for example, it would
+  show that `Strided & Managed` vs `Unstrided and Unmanaged` has a bandwidth
+  ratio of 1.2, meaning that `Strided & Managed` delivered 20% more bandwidth.
+
 
 ## License
 Distributed under the MIT License. See `LICENSE-MIT.md` for more information.
