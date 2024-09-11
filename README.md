@@ -4,32 +4,63 @@ _Optimizes CUDA kernels by searching for the best parameters and optimization
 methods._
 
 GPUs provide incredible speedups for AI and other numerically intensive
-problems, but require deep knowledge to use correctly. While writing kernels is
+tasks, but require deep knowledge to use effectively. While writing kernels is
 straightforward, how they interact with GPU architectures can have dramatic
 effects on speed and throughput.
 
 There are multiple ways to structure kernels and incorporate GPU architecture
 knowledge to optimize them, such as _striding_, _occupancy_, _coalesced memory
 access_, _shared memory_, _thread block size optimization_, _register pressure
-management_, and many more.
+management_, and more.
 
 The problem is that a developer can't know in advance how these optimizations
 interact, or which combinations are most effective, or which actually interfere
 with others.
 
 This repository provides code that compares optimization techniques for common
-kernels and provides a framework for including and optimizing your kernels.
+kernels and provides a framework for optimizing your kernels.
 
 ## Features
+* Finds optimal parameters for speed and throughput of CUDA kernels.
 * Allows kernels to be included in multiple optimizations.
 * Includes common metrics like time, bandwidth, and occupancy.
 * Provides generators for common grid searches and architecture-appropriate
   values for kernels. For example, it includes predefined searching by
   warp-sized increments.
+* Optimizes over:
+  1. `numBlocks` and `blockSize` kernel parameters.
+  1. managed vs unmanaged memory,
+  1. strided vs unstrided loops,
+  1. occupancy
 * Allows optimizations to be groups into sets for multi-way optimization.
 
 ## How to build and run
 
+The code is `CMake` based, so use the standard procedure:
+
+Build:
+```bash
+  # cd into the project directory
+  $ mkdir build
+  $ cmake -B build -S .
+  $ cmake --build build
+```
+
+Test:
+```bash
+  $ ./build/tests/test_app
+```
+
+Run:
+```bash
+  $ ./build/src/cuda_optimizer
+```
+
+The output is long, so it's useful to capture the output for review:
+```bash
+$ ./build/src/cuda_optimizer | tee /tmp/opt_out.txt
+$ less /tmp/opt_out.txt
+```
 
 ## Understanding the output
 
@@ -138,8 +169,12 @@ int AddStridedManaged::CheckResults() {
   return num_errors;
 }
 ```
-The kernel has been moved to `kernels.cu`. Note that `numBlocks` and `blockSize`
-become inputs determined by the call to `RunKernel()` or by the optimizers.
+The kernel has been moved to `kernels.cu`/`kernels.h`. Note that `numBlocks` and
+`blockSize` become inputs determined by the call to `RunKernel()` or by the
+optimizers.
+
+## Readability
+The project follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html). Note that the CUDA function calls start with lowercase letters, while Google style is to start function calls with Capital letters. This difference makes it easy to distinguish the CUDA calls.
 
 ## License
 Distributed under the MIT License. See `LICENSE-MIT.md` for more information.
