@@ -33,6 +33,7 @@ kernels and provides a framework for optimizing your kernels.
   1. strided vs unstrided loops,
   1. occupancy
 * Allows optimizations to be groups into sets for multi-way optimization.
+* Statistically accurate and flexible timer for measuring kernel timing.
 
 ## How to build and run
 
@@ -61,10 +62,62 @@ The output is long, so it's useful to capture the output for review:
 $ ./build/src/cuda_optimizer | tee /tmp/opt_out.txt
 $ less /tmp/opt_out.txt
 ```
+## Optimization
+Groups of kernels can be created in the Optimizer and run as a set to make comparisons. For example, to compare strided vs unstrided variations of a Euclidian Distance kernel, we can do:
+
+```C++
+  // Make an optimizer for the DistKernelFunc.
+  Optimizer<DistKernelFunc> DistOptimizer;
+
+  // Add strategies.
+  DistOptimizer.AddStrategy("Strided",      RunStridedSearch<DistKernelFunc>,
+                            &dist_strided);
+  DistOptimizer.AddStrategy(
+      "Unstrided", RunUnstridedSearch<DistKernelFunc>, &dist_unstrided);
+
+  // Create comparison set with these two strategies.
+  name = "Euclidian Distance kernel, strided vs unstrided";
+  optimizer.CreateSet(name, {"Strided", "Unstrided"});
+
+  // Optimize and compare the two strategies.
+  DistOptimizer.OptimizeSet(name, hardware_info);
+```
+
 
 ## Understanding the output
 
+As it runs, `cuda_optimizer` outputs lines like:
+```bash
+<<numBlocks, blockSize>> = <<     1,024,   352>>, occupancy:  0.92, bandwidth:      8.32GB/s, time:    1.51 ms (over 34 runs)
+```
+This line shows a parameter variation over `numBlocks` and `blockSize` in which the kernel, in this case a vector add with striding, is being called like:
+```bash
+AddStrided<<1024, 352>>(n, x, y);
+```
+The line shows that the result had an occupancy of  92%, bandwidth of 8.32GB/s, and an average run time of 1.51 ms. The problem size is 1<<20, or 1,048,576, specified in the `add_strided_managed.h` file.
+
+At the end of a run, the
+
+## Timing
+Each run is repeated over sufficient runs achieve a given level of statistical
+accuracy. Specifically, it continues sampling until the margin of error (at 95%
+confidence) is less than a specified fraction (`relative_precision_`) of the
+sample standard deviation.
+
+For example, in a normal curve, ~0.68% of the population is found within +/- 1 standard deviation of the mean. The timer used in `cuda_optimizer` allows the developer to set this precision value to balance accuracy with test length. In practice, a required precision of 0.35 is satisfied with about 34 runs.
+
 ## Architecture
+The code is organized into a series of layers:
+
+* Optimizer: collects examples into sets that can be run and compared. For example, we can compared managed to unmanaged, strided to unstrided, or all together.
+
+* Examples: Implement the `IKernel` interface, templated on the kernel.
+```C++
+class AddStridedManaged : public IKernel<AddKernelFunc> {
+```
+The `IKernel` interface provides `Setup()`, `RunKernel()`, `Cleanup()`, and `CheckResults()`. Examples also include the generators use for grid searching over their parameters.
+
+* kernels: These are the base Cuda kernels.
 
 ## Converting an example into the framework
 

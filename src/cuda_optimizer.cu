@@ -134,8 +134,8 @@ int main(void) {
                             &dist_strided);
   DistOptimizer.AddStrategy(
       "Unstrided", co::RunUnstridedSearch<co::DistKernelFunc>, &dist_unstrided);
-  optimizer.CreateSet(name, {"Strided", "Unstrided"});
   name = "Euclidian Distance kernel, strided vs unstrided";
+  optimizer.CreateSet(name, {"Strided", "Unstrided"});
   DistOptimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n***********************************************" << std::endl;
@@ -143,8 +143,8 @@ int main(void) {
   matrix_multiply_optimizer.AddStrategy(
       "Unstrided", co::RunUnstridedSearch<co::MatrixMultiplyKernelFunc>,
       &matrix_multiply);
-  optimizer.CreateSet(name, {"Unstrided"});
   name = "Matrix Multiply kernel";
+  optimizer.CreateSet(name, {"Unstrided"});
   matrix_multiply_optimizer.OptimizeSet(name, hardware_info);
 
   return 0;
