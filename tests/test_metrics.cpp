@@ -3,6 +3,8 @@
 
 #include "../src/reporter.h"
 
+namespace cuda_optimizer {
+
 TEST_CASE("Metrics::Initialization", "[Metrics]") {
   Metrics m;
   REQUIRE(m[Condition::kMinTime].time_ms == std::numeric_limits<double>::max());
@@ -117,3 +119,5 @@ TEST_CASE("Metrics::UpdateAll updates all conditions", "[metrics]") {
     REQUIRE(metrics[cond].occupancy == 0.75);
   }
 }
+
+}  // namespace cuda_optimizer

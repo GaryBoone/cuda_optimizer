@@ -7,6 +7,8 @@
 
 #include "tl/expected.hpp"
 
+namespace cuda_optimizer {
+
 struct ErrorInfo {
   enum ErrorType {
     kNone,
@@ -28,3 +30,5 @@ using ExpectedDouble = tl::expected<double, ErrorInfo>;
 using ExpectedInt = tl::expected<int, ErrorInfo>;
 using ExpectedBool = tl::expected<bool, ErrorInfo>;
 using ExpectedVoid = tl::expected<void, ErrorInfo>;
+
+}  // namespace cuda_optimizer

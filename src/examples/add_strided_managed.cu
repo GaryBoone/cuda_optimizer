@@ -5,6 +5,8 @@
 
 #include "add_strided_managed.h"
 
+namespace cuda_optimizer {
+
 void AddStridedManaged::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaError_t err = cudaGetLastError();
@@ -53,3 +55,5 @@ int AddStridedManaged::CheckResults() {
 
   return num_errors;
 }
+
+}  // namespace cuda_optimizer

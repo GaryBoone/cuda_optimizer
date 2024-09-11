@@ -5,6 +5,8 @@
 
 #include "add_strided_unmanaged.h"
 
+namespace cuda_optimizer {
+
 void AddStridedUnmanaged::Setup() {
   // Allocate memory on the device.
   cudaMalloc(&x_, n_ * sizeof(float));
@@ -63,3 +65,5 @@ int AddStridedUnmanaged::CheckResults() {
 
   return num_errors;
 }
+
+}  // namespace cuda_optimizer

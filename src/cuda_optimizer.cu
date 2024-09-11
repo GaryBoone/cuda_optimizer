@@ -4,7 +4,6 @@
 #include <iostream>
 #include <string>
 
-#include "adaptive_sampler.h"
 #include "examples/add_strided_managed.h"
 #include "examples/add_strided_unmanaged.h"
 #include "examples/add_unstrided_managed.h"
@@ -12,44 +11,21 @@
 #include "examples/euclidian_distance_strided.h"
 #include "examples/euclidian_distance_unstrided.h"
 #include "examples/matrix_multiply.h"
-#include "grid_searchers.h"
-#include "i_kernel.h"
-#include "kernels.h"
 #include "optimizer.h"
-#include "timer.h"
 
-// Build:
-// $ cmake -B build -S .
-// $ cmake --build build
-// Run:
-// $ ./build/src/cuda_optimizer
-// Test:
-// $ ./build/tests/test_app
-
-template <typename KernelFunc>
-float TimeKernel(IKernel<KernelFunc> &ex, int num_blocks, int block_size) {
-  CudaTimer timer;
-  timer.Start();
-  ex.RunKernel(num_blocks, block_size);
-  timer.Stop();
-
-  // Wait for GPU to finish before accessing on host.
-  cudaDeviceSynchronize();
-
-  return timer.ElapsedMilliseconds();
-}
+namespace co = ::cuda_optimizer;
 
 cudaDeviceProp HardwareInfo() {
   int num_devices = 0;
   cudaGetDeviceCount(&num_devices);  // Get the number of devices
   if (num_devices == 0) {
-    std::cout << "No CUDA devices found." << std::endl;
-    exit(1);  // TODO(Gary): Fix.
-    // return 0;
+    std::cout << "No CUDA devices found. Exitting." << std::endl;
+    exit(1);
   }
 
   std::cout << "Number of CUDA devices: " << num_devices << std::endl;
   cudaDeviceProp props;
+  // If there are multiple devices, print all info and return the last one.
   for (int i = 0; i < num_devices; i++) {
     cudaGetDeviceProperties(&props, i);
     std::cout << "Device Number: " << i << std::endl;
@@ -75,79 +51,6 @@ cudaDeviceProp HardwareInfo() {
   return props;
 }
 
-template <typename KernelFunc>
-double Occupancy(cudaDeviceProp props, int num_blocks, int block_size,
-                 KernelFunc kernel) {
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, kernel, block_size,
-                                                0);
-  int activeWarps = num_blocks * block_size / props.warpSize;
-  assert(0 != props.warpSize);
-  int maxWarps = props.maxThreadsPerMultiProcessor / props.warpSize;
-  return (static_cast<double>(activeWarps) / maxWarps);
-}
-
-template <typename KernelFunc>
-tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
-                                                     IKernel<KernelFunc> &ex,
-                                                     int num_blocks,
-                                                     int block_size) {
-  AdaptiveSampler stats(required_precision);
-  bool skip_first = true;
-  while (stats.ShouldContinue()) {
-    ex.Setup();
-
-    float time = TimeKernel(ex, num_blocks, block_size);
-
-    if (0 != ex.CheckResults()) {
-      return tl::make_unexpected(ErrorInfo(ErrorInfo::kUnexpectedKernelResult,
-                                           "errors in kernel results"));
-    }
-    ex.Cleanup();
-
-    // Don't include the first run in the averages to ignore loading effects.
-    if (skip_first) {
-      skip_first = false;
-      continue;
-    }
-    stats.Update(time);
-  }
-  return stats;
-}
-
-// Calculate the optimimal num_blocks and block_size for the given kernel on
-// the given hardware.
-template <typename KernelFunc>
-void OptimizeOccupancy(cudaDeviceProp &hardware_info, int &num_blocks,
-                       int &block_size, KernelFunc kernel) {
-  int min_grid_size;
-  cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0);
-
-  int num_blocks_per_SM;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks_per_SM, kernel,
-                                                block_size, 0);
-
-  int num_SMs = hardware_info.multiProcessorCount;
-  num_blocks = num_blocks_per_SM * num_SMs;
-
-  double current_occupancy =
-      Occupancy(hardware_info, num_blocks, block_size, kernel);
-
-  for (int bs = block_size; bs >= 32; bs -= 32) {
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks_per_SM, kernel,
-                                                  bs, 0);
-    int nb = num_blocks_per_SM * num_SMs;
-    double occ = Occupancy(hardware_info, nb, bs, kernel);
-
-    if (occ > current_occupancy) {
-      num_blocks = nb;
-      block_size = bs;
-      current_occupancy = occ;
-    }
-
-    if (current_occupancy >= 0.99) break;  // Close enough to 1.0
-  }
-}
-
 int main(void) {
   auto hardware_info = HardwareInfo();
   int max_num_blocks = hardware_info.maxThreadsDim[0] *
@@ -156,53 +59,57 @@ int main(void) {
   int max_block_size = hardware_info.maxThreadsPerBlock;
   std::cout << "...which means that: " << std::endl;
   std::cout << "  max_num_blocks: "
-            << Reporter::FormatWithCommas(max_num_blocks) << std::endl;
+            << co::Reporter::FormatWithCommas(max_num_blocks) << std::endl;
   std::cout << "  max_block_size: "
-            << Reporter::FormatWithCommas(max_block_size) << std::endl;
+            << co::Reporter::FormatWithCommas(max_block_size) << std::endl;
 
   // Individual runs.
   std::cout << "\n==> Add with stride kernel and with managed memory :"
             << std::endl;
-  AddStridedManaged add_strided_managed(max_num_blocks, max_block_size);
+  co::AddStridedManaged add_strided_managed(max_num_blocks, max_block_size);
   add_strided_managed.Run(4096, 256);
 
   std::cout << "\n==> Add without stride kernel and with managed memory:"
             << std::endl;
-  AddUnstridedManaged add_unstrided_managed(max_num_blocks, max_block_size);
+  co::AddUnstridedManaged add_unstrided_managed(max_num_blocks, max_block_size);
   add_unstrided_managed.Run(4096, 256);
 
   std::cout << "\n==> Add with stride kernel and without managed memory :"
             << std::endl;
-  AddStridedUnmanaged add_strided_unmanaged(max_num_blocks, max_block_size);
+  co::AddStridedUnmanaged add_strided_unmanaged(max_num_blocks, max_block_size);
   add_strided_unmanaged.Run(4096, 256);
 
   std::cout << "\n==> Add without stride kernel and without managed memory:"
             << std::endl;
-  AddUnstridedUnmanaged add_unstrided_unmanaged(max_num_blocks, max_block_size);
+  co::AddUnstridedUnmanaged add_unstrided_unmanaged(max_num_blocks,
+                                                    max_block_size);
   add_unstrided_unmanaged.Run(4096, 256);
 
   std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
-  EuclidianDistanceStrided dist_strided(max_num_blocks, max_block_size);
+  co::EuclidianDistanceStrided dist_strided(max_num_blocks, max_block_size);
   dist_strided.Run(4096, 256);
 
   std::cout << "\n==> Euclidian Distance without stride kernel:" << std::endl;
-  EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
+  co::EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
   dist_unstrided.Run(4096, 256);
 
   std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
-  MatrixMultiply matrix_multiply(max_num_blocks, max_block_size);
+  co::MatrixMultiply matrix_multiply(max_num_blocks, max_block_size);
   matrix_multiply.Run(8192, 32);
 
   // Grid searches.
-  Optimizer<AddKernelFunc> optimizer;
-  optimizer.AddStrategy("Strided, Managed", RunStridedSearch<AddKernelFunc>,
+  co::Optimizer<co::AddKernelFunc> optimizer;
+  optimizer.AddStrategy("Strided, Managed",
+                        co::RunStridedSearch<co::AddKernelFunc>,
                         &add_strided_managed);
-  optimizer.AddStrategy("Unstrided, Managed", RunUnstridedSearch<AddKernelFunc>,
+  optimizer.AddStrategy("Unstrided, Managed",
+                        co::RunUnstridedSearch<co::AddKernelFunc>,
                         &add_unstrided_managed);
-  optimizer.AddStrategy("Strided, Unmanaged", RunStridedSearch<AddKernelFunc>,
+  optimizer.AddStrategy("Strided, Unmanaged",
+                        co::RunStridedSearch<co::AddKernelFunc>,
                         &add_strided_unmanaged);
   optimizer.AddStrategy("Unstrided, Unmanaged",
-                        RunUnstridedSearch<AddKernelFunc>,
+                        co::RunUnstridedSearch<co::AddKernelFunc>,
                         &add_unstrided_unmanaged);
 
   std::cout << "\n******** Comparison ***************************" << std::endl;
@@ -222,19 +129,19 @@ int main(void) {
   optimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n******** Comparison ***************************" << std::endl;
-  Optimizer<DistKernelFunc> DistOptimizer;
-  DistOptimizer.AddStrategy("Strided", RunStridedSearch<DistKernelFunc>,
+  co::Optimizer<co::DistKernelFunc> DistOptimizer;
+  DistOptimizer.AddStrategy("Strided", co::RunStridedSearch<co::DistKernelFunc>,
                             &dist_strided);
-  DistOptimizer.AddStrategy("Unstrided", RunUnstridedSearch<DistKernelFunc>,
-                            &dist_unstrided);
+  DistOptimizer.AddStrategy(
+      "Unstrided", co::RunUnstridedSearch<co::DistKernelFunc>, &dist_unstrided);
   optimizer.CreateSet(name, {"Strided", "Unstrided"});
   name = "Euclidian Distance kernel, strided vs unstrided";
   DistOptimizer.OptimizeSet(name, hardware_info);
 
   std::cout << "\n***********************************************" << std::endl;
-  Optimizer<MatrixMultiplyKernelFunc> matrix_multiply_optimizer;
+  co::Optimizer<co::MatrixMultiplyKernelFunc> matrix_multiply_optimizer;
   matrix_multiply_optimizer.AddStrategy(
-      "Unstrided", RunUnstridedSearch<MatrixMultiplyKernelFunc>,
+      "Unstrided", co::RunUnstridedSearch<co::MatrixMultiplyKernelFunc>,
       &matrix_multiply);
   optimizer.CreateSet(name, {"Unstrided"});
   name = "Matrix Multiply kernel";

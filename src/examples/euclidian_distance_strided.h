@@ -13,6 +13,8 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
+namespace cuda_optimizer {
+
 __global__ void EuclidianDistanceStridedKernel(int n, float2 *x, float2 *y,
                                                float *distance);
 
@@ -53,3 +55,5 @@ class EuclidianDistanceStrided : public IKernel<DistKernelFunc> {
   int max_num_blocks_;
   int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

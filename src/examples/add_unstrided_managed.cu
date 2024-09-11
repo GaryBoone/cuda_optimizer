@@ -5,6 +5,8 @@
 
 #include "add_unstrided_managed.h"
 
+namespace cuda_optimizer {
+
 void AddUnstridedManaged::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaError_t err = cudaGetLastError();
@@ -53,3 +55,5 @@ int AddUnstridedManaged::CheckResults() {
 
   return num_errors;
 }
+
+}  // namespace cuda_optimizer

@@ -2,6 +2,8 @@
 
 #include <optional>
 
+namespace cuda_optimizer {
+
 // Generators are used to create increments for grid searches.
 class IGridSizeGenerator {
  public:
@@ -47,3 +49,5 @@ class IncrementBy32Generator : public IGridSizeGenerator {
   int block_size_ = 1;
   const int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

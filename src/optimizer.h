@@ -13,6 +13,8 @@
 #include "./metrics.h"
 #include "./reporter.h"
 
+namespace cuda_optimizer {
+
 template <typename KernelFunc>
 class Optimizer {
  public:
@@ -119,3 +121,5 @@ class Optimizer {
   std::map<std::string, Search> searches_;
   std::map<std::string, std::vector<std::string>> sets_;
 };
+
+}  // namespace cuda_optimizer

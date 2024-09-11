@@ -13,8 +13,7 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
-__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
-                                                 float *distance);
+namespace cuda_optimizer {
 
 class EuclidianDistanceUnstrided : public IKernel<DistKernelFunc> {
  public:
@@ -53,3 +52,5 @@ class EuclidianDistanceUnstrided : public IKernel<DistKernelFunc> {
   int max_num_blocks_;
   int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

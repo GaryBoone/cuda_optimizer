@@ -3,6 +3,8 @@
 
 #include "../src/generators.h"
 
+namespace cuda_optimizer {
+
 TEST_CASE("DoublingGenerator with max_num_blocks of 0", "[DoublingGenerator]") {
   DoublingGenerator generator(0);
 
@@ -115,3 +117,5 @@ TEST_CASE("IncrementBy32Generator multiple calls after reaching max",
     REQUIRE(generator.Next() == std::nullopt);
   }
 }
+
+}  // namespace cuda_optimizer

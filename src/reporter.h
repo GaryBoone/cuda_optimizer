@@ -8,6 +8,8 @@
 
 #include "./metrics.h"
 
+namespace cuda_optimizer {
+
 class Reporter {
  public:
   // Return the given value as a string formatted with SI prefixes. Values
@@ -26,3 +28,5 @@ class Reporter {
   // Print the complete timing results.
   static void PrintResults(std::string prefix, Data data);
 };
+
+}  // namespace cuda_optimizer

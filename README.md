@@ -129,6 +129,8 @@ That is, we define a subclass of `IKernel` and break up the code into the
 
 #include "add_strided_managed.h"
 
+namespace cuda_optimizer {
+
 void AddStridedManaged::Setup() {
   cudaMallocManaged(&x_, n_ * sizeof(float));
   cudaMallocManaged(&y_, n_ * sizeof(float));
@@ -168,6 +170,8 @@ int AddStridedManaged::CheckResults() {
   }
   return num_errors;
 }
+
+} // namespace cuda_optimizer
 ```
 The kernel has been moved to `kernels.cu`/`kernels.h`. Note that `numBlocks` and
 `blockSize` become inputs determined by the call to `RunKernel()` or by the

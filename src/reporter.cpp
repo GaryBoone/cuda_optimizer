@@ -4,6 +4,8 @@
 #include <locale>
 #include <string>
 
+namespace cuda_optimizer {
+
 std::string Reporter::FormatToSI(double number) {
   struct Scale {
     double divisor;
@@ -74,3 +76,5 @@ void Reporter::PrintResults(std::string prefix, Data data) {
   std::cout << "                  ";
   PrintResultsData(data, std::nullopt);
 }
+
+}  // namespace cuda_optimizer

@@ -13,6 +13,8 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
+namespace cuda_optimizer {
+
 class AddStridedManaged : public IKernel<AddKernelFunc> {
  public:
   AddStridedManaged(int mnb, int mbs)
@@ -43,3 +45,5 @@ class AddStridedManaged : public IKernel<AddKernelFunc> {
   const int max_num_blocks_;
   const int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

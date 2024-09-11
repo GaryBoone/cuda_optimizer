@@ -3,10 +3,12 @@
 
 #include "../src/adaptive_sampler.h"
 
+namespace cuda_optimizer {
+
 class AdaptiveSamplerTest {
-public:
-  static ExpectedDouble
-  invoke_two_tailed_95_students_t(AdaptiveSampler &sampler, int df) {
+ public:
+  static ExpectedDouble invoke_two_tailed_95_students_t(
+      AdaptiveSampler &sampler, int df) {
     return sampler.TwoTailed95PercentStudentsT(df);
   }
 };
@@ -144,3 +146,5 @@ TEST_CASE("AdaptiveSampler should continue", "[AdaptiveSampler]") {
     REQUIRE(!as.ShouldContinue());
   }
 }
+
+}  // namespace cuda_optimizer

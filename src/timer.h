@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+namespace cuda_optimizer {
+
 #define gpuErrchk(ans) \
   { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line,
@@ -53,3 +55,5 @@ class CudaTimer {
  private:
   CudaEvent start_event_, stop_event_;
 };
+
+}  // namespace cuda_optimizer

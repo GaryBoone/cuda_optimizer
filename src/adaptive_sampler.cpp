@@ -4,6 +4,10 @@
 #include <iostream>
 #include <random>
 
+#include "./errors.h"
+
+namespace cuda_optimizer {
+
 // Calculate the student's t distribution value for the 2-sided 95% confidence
 // interval for the given degrees of freedom. This function assumes that the
 // caller has already reduced the degrees of freedom, if needed.
@@ -122,3 +126,5 @@ bool AdaptiveSampler::ShouldContinue() {
   // than the required margin of error.
   return margin_of_error > required_margin_of_error;
 }
+
+}  // namespace cuda_optimizer

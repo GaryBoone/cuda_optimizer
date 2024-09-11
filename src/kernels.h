@@ -7,8 +7,18 @@
 #include <random>
 #include <vector>
 
+namespace cuda_optimizer {
+
 __global__ void AddStridedKernel(int n, float *x, float *y);
 __global__ void AddUnstridedKernel(int n, float *x, float *y);
+
+__global__ void EuclidianDistanceStridedKernel(int n, float2 *x, float2 *y,
+                                               float *distance);
+__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
+                                                 float *distance);
+
+__global__ void MatrixMultiplyKernel(int matrix_dim, float *a, float *b,
+                                     float *c);
 
 // The Add kernels are defined like:
 //     __global__ void AddStridedKernel(int n, float *x, float *y);
@@ -43,3 +53,5 @@ inline __device__ float2 subtract(float2 a, float2 b) {
 inline __device__ float dot(float2 a, float2 b) {
   return a.x * b.x + a.y * b.y;
 }
+
+}  // namespace cuda_optimizer

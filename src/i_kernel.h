@@ -12,6 +12,8 @@
 #include "./generators.h"
 #include "./kernels.h"
 
+namespace cuda_optimizer {
+
 struct KernelInfo {
   // name is the name of the kernel.
   std::string name;
@@ -51,3 +53,5 @@ class IKernel {
     Cleanup();
   }
 };
+
+}  // namespace cuda_optimizer

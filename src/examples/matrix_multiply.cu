@@ -6,20 +6,7 @@
 #include "../kernels.h"
 #include "matrix_multiply.h"
 
-__global__ void MatrixMultiplyKernel(int matrix_dim, float *a, float *b,
-                                     float *c) {
-  int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
-  int row = thread_id / matrix_dim;
-  int col = thread_id % matrix_dim;
-
-  if (row < matrix_dim && col < matrix_dim) {
-    float sum = 0.0f;
-    for (int k = 0; k < matrix_dim; k++) {
-      sum += a[row * matrix_dim + k] * b[k * matrix_dim + col];
-    }
-    c[row * matrix_dim + col] = sum;
-  }
-}
+namespace cuda_optimizer {
 
 void MatrixMultiply::Setup() {
   size_t size = n_ * sizeof(float);
@@ -89,3 +76,5 @@ int MatrixMultiply::CheckResults() {
 
   return num_errors;
 }
+
+}  // namespace cuda_optimizer

@@ -3,6 +3,8 @@
 
 #include "../src/reporter.h"
 
+namespace cuda_optimizer {
+
 TEST_CASE("FormatToSI", "[Reporter]") {
   REQUIRE(Reporter::FormatToSI(-22) == "-22.00");
   REQUIRE(Reporter::FormatToSI(0) == "0.00");
@@ -43,3 +45,5 @@ TEST_CASE("FormatWithCommas", "[Reporter]") {
   REQUIRE(Reporter::FormatWithCommas(1111111111) == "1,111,111,111");
   REQUIRE(Reporter::FormatWithCommas(-1111111111) == "-1,111,111,111");
 }
+
+}  // namespace cuda_optimizer

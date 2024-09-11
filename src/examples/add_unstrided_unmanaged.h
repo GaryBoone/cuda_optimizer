@@ -13,6 +13,8 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
+namespace cuda_optimizer {
+
 class AddUnstridedUnmanaged : public IKernel<AddKernelFunc> {
  public:
   AddUnstridedUnmanaged(int mnb, int mbs)
@@ -43,3 +45,5 @@ class AddUnstridedUnmanaged : public IKernel<AddKernelFunc> {
   const int max_num_blocks_;
   const int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

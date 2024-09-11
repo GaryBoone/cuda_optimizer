@@ -13,7 +13,7 @@
 #include "../i_kernel.h"
 #include "../kernels.h"
 
-__global__ void MatrixMultiplyKernel(int N, float *A, float *B, float *C);
+namespace cuda_optimizer {
 
 class MatrixMultiply : public IKernel<MatrixMultiplyKernelFunc> {
  public:
@@ -49,3 +49,5 @@ class MatrixMultiply : public IKernel<MatrixMultiplyKernelFunc> {
   const int max_num_blocks_;
   const int max_block_size_;
 };
+
+}  // namespace cuda_optimizer

@@ -27,9 +27,6 @@ FetchContent_MakeAvailable(expected)
 # application library
 set(SOURCE_FILES
   adaptive_sampler.cpp
-  reporter.cpp
-  metrics.cpp
-  kernels.cu
   examples/add_strided_managed.cu
   examples/add_strided_unmanaged.cu
   examples/add_unstrided_managed.cu
@@ -37,6 +34,9 @@ set(SOURCE_FILES
   examples/euclidian_distance_strided.cu
   examples/euclidian_distance_unstrided.cu
   examples/matrix_multiply.cu
+  kernels.cu
+  metrics.cpp
+  reporter.cpp
 )
 
 add_library(core_lib ${SOURCE_FILES})

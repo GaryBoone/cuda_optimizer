@@ -1,9 +1,16 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include <string>
 
+#include "./i_kernel.h"
 #include "./metrics.h"
+#include "./occupancy.h"
 #include "./reporter.h"
+#include "./timer.h"
+
+namespace cuda_optimizer {
 
 // The repeated runs done by the grid searches generate multiple samples for
 // how long it takes to run a kernel. The grid searches then use these samples
@@ -12,6 +19,47 @@
 // precision of the actual mean time. This precision is defined by
 // kRequiredPrecision.
 const double kRequiredPrecision = 0.35;
+
+template <typename KernelFunc>
+float TimeKernel(IKernel<KernelFunc> &ex, int num_blocks, int block_size) {
+  CudaTimer timer;
+  timer.Start();
+  ex.RunKernel(num_blocks, block_size);
+  timer.Stop();
+
+  // Wait for GPU to finish before accessing on host.
+  cudaDeviceSynchronize();
+
+  return timer.ElapsedMilliseconds();
+}
+
+template <typename KernelFunc>
+tl::expected<AdaptiveSampler, ErrorInfo> RepeatUntil(double required_precision,
+                                                     IKernel<KernelFunc> &ex,
+                                                     int num_blocks,
+                                                     int block_size) {
+  AdaptiveSampler stats(required_precision);
+  bool skip_first = true;
+  while (stats.ShouldContinue()) {
+    ex.Setup();
+
+    float time = TimeKernel(ex, num_blocks, block_size);
+
+    if (0 != ex.CheckResults()) {
+      return tl::make_unexpected(ErrorInfo(ErrorInfo::kUnexpectedKernelResult,
+                                           "errors in kernel results"));
+    }
+    ex.Cleanup();
+
+    // Don't include the first run in the averages to ignore loading effects.
+    if (skip_first) {
+      skip_first = false;
+      continue;
+    }
+    stats.Update(time);
+  }
+  return stats;
+}
 
 inline void PrintResults(std::string header, Metrics metrics) {
   Reporter::PrintResults(header + " best      time: ",
@@ -28,10 +76,11 @@ Metrics RunStridedSearch(
     IKernel<KernelFunc> &ex) {  // NOLINT(runtime/references
   Metrics metrics;
 
-  int num_blocks, block_size;
-  OptimizeOccupancy(hardware_info, num_blocks, block_size, ex.GetKernel());
-  std::cout << "expected optimal num_blocks: " << num_blocks << std::endl;
-  std::cout << "expected optimal block_size: " << block_size << std::endl;
+  // int num_blocks, block_size;
+  // OptimizeOccupancy<KernelFunc>(hardware_info, num_blocks, block_size,
+  //                               ex.GetKernel());
+  // std::cout << "expected optimal num_blocks: " << num_blocks << std::endl;
+  // std::cout << "expected optimal block_size: " << block_size << std::endl;
 
   auto kernel_info = ex.GetKernelInfo();
 
@@ -128,3 +177,5 @@ Metrics RunUnstridedSearch(
   PrintResults(kernel_info.name + " final", metrics);
   return metrics;
 }
+
+}  // namespace cuda_optimizer

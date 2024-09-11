@@ -6,15 +6,7 @@
 #include "../kernels.h"
 #include "euclidian_distance_unstrided.h"
 
-__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
-                                                 float *distance) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n) {
-    float2 dp = subtract(y[i], x[i]);
-    float dist = sqrtf(dot(dp, dp));
-    distance[i] = dist;
-  }
-}
+namespace cuda_optimizer {
 
 void EuclidianDistanceUnstrided::Setup() {
   h_x_.resize(n_);
@@ -77,3 +69,5 @@ int EuclidianDistanceUnstrided::CheckResults() {
   }
   return num_errors;
 }
+
+}  // namespace cuda_optimizer

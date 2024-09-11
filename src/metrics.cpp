@@ -1,6 +1,8 @@
 
 #include "./metrics.h"
 
+namespace cuda_optimizer {
+
 void Metrics::Update(Condition cond, const Data& new_metrics) {
   auto& current = data[static_cast<size_t>(cond)];
   if (IsBetter(new_metrics, current, cond)) {
@@ -69,3 +71,5 @@ void Metrics::print_all() const {
               << "  Occupancy: " << metrics.occupancy << "\n\n";
   }
 }
+
+}  // namespace cuda_optimizer

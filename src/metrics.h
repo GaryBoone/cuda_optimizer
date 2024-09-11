@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 
+namespace cuda_optimizer {
+
 enum class Condition {
   kMinTime,
   kMaxBandwidth,
@@ -56,3 +58,5 @@ class Metrics {
 
   constexpr std::string_view ConditionToString(Condition cond) const;
 };
+
+}  // namespace cuda_optimizer

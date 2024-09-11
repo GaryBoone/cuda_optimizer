@@ -6,6 +6,8 @@
 
 #include "./errors.h"
 
+namespace cuda_optimizer {
+
 class AdaptiveSampler {
   friend class AdaptiveSamplerTest;
 
@@ -24,3 +26,5 @@ class AdaptiveSampler {
   ExpectedDouble EstimatedMean();
   int NumSamples() { return num_samples_; }
 };
+
+}  // namespace cuda_optimizer
