@@ -25,7 +25,7 @@ class AddUnstridedUnmanaged : public IKernel<AddKernelFunc> {
   }
   void (*GetKernel() const)(int, float *, float *) override {
     return AddUnstridedKernel;
-  } 
+  }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {
     return std::make_unique<DoublingGenerator>(max_num_blocks_);
