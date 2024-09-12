@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <limits>
 
-#include "../src/reporter.h"
+#include "../src/metrics.h"
 
 namespace cuda_optimizer {
 

@@ -15,24 +15,24 @@
 
 namespace cuda_optimizer {
 
-__global__ void EuclidianDistanceStridedKernel(int n, float2 *x, float2 *y,
+__global__ void EuclideanDistanceStridedKernel(int n, float2 *x, float2 *y,
                                                float *distance);
 
-class EuclidianDistanceStrided : public IKernel<DistKernelFunc> {
+class EuclideanDistanceStrided : public IKernel<DistKernelFunc> {
  public:
-  EuclidianDistanceStrided(int mnb, int mbs)
+  EuclideanDistanceStrided(int mnb, int mbs)
       : max_num_blocks_(mnb), max_block_size_(mbs) {}
   KernelInfo GetKernelInfo() const override {
-    // For a length n Euclidian distance calculation:
+    // For a length n Euclidean distance calculation:
     // Problem size: n, the number of distance calculations
     // Bandwidth: (2 reads from x and y + 1 write to distance) * n *
     // sizeof(float2)
     //            + (1 write to distance) * n * sizeof(float)
-    return {"EuclidianDistanceStrided", n_,
+    return {"EuclideanDistanceStrided", n_,
             (3 * n_ * sizeof(float2)) + (n_ * sizeof(float))};
   }
   void (*GetKernel() const)(int, float2 *, float2 *, float *) override {
-    return EuclidianDistanceStridedKernel;
+    return EuclideanDistanceStridedKernel;
   }
   void Setup() override;
   std::unique_ptr<IGridSizeGenerator> GetNumBlocksGenerator() const override {

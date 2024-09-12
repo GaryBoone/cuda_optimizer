@@ -1,10 +1,9 @@
 #pragma once
 
-#include <algorithm>
+#include <stddef.h>
+
 #include <array>
-#include <iostream>
 #include <limits>
-#include <string>
 #include <string_view>
 
 namespace cuda_optimizer {

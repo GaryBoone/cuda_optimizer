@@ -17,7 +17,7 @@ __global__ void AddStridedKernel(int n, float *x, float *y) {
   }
 }
 
-__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
+__global__ void EuclideanDistanceUnstridedKernel(int n, float2 *x, float2 *y,
                                                  float *distance) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
@@ -27,7 +27,7 @@ __global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
   }
 }
 
-__global__ void EuclidianDistanceStridedKernel(int n, float2 *x, float2 *y,
+__global__ void EuclideanDistanceStridedKernel(int n, float2 *x, float2 *y,
                                                float *distance) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = blockDim.x * gridDim.x;

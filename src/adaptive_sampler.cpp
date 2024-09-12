@@ -1,10 +1,13 @@
-#include "./adaptive_sampler.h"
+#include "adaptive_sampler.h"
+
+#include <stddef.h>
 
 #include <cmath>
-#include <iostream>
-#include <random>
+#include <utility>
+#include <vector>
 
 #include "./errors.h"
+#include "tl/expected.hpp"
 
 namespace cuda_optimizer {
 
@@ -122,8 +125,8 @@ bool AdaptiveSampler::ShouldContinue() {
   double margin_of_error = *t_result * std_error;
   double required_margin_of_error = relative_precision_ * std_dev;
   // The margin of error starts large and shrinks as we gather data because it's
-  // proporional to sqrt(1/n). So keep sampling if the margin of error is larger
-  // than the required margin of error.
+  // proportional to sqrt(1/n). So keep sampling if the margin of error is
+  // larger than the required margin of error.
   return margin_of_error > required_margin_of_error;
 }
 

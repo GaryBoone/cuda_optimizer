@@ -12,9 +12,9 @@ namespace cuda_optimizer {
 __global__ void AddStridedKernel(int n, float *x, float *y);
 __global__ void AddUnstridedKernel(int n, float *x, float *y);
 
-__global__ void EuclidianDistanceStridedKernel(int n, float2 *x, float2 *y,
+__global__ void EuclideanDistanceStridedKernel(int n, float2 *x, float2 *y,
                                                float *distance);
-__global__ void EuclidianDistanceUnstridedKernel(int n, float2 *x, float2 *y,
+__global__ void EuclideanDistanceUnstridedKernel(int n, float2 *x, float2 *y,
                                                  float *distance);
 
 __global__ void MatrixMultiplyKernel(int matrix_dim, float *a, float *b,
@@ -25,8 +25,8 @@ __global__ void MatrixMultiplyKernel(int matrix_dim, float *a, float *b,
 // so here is their shared type.
 using AddKernelFunc = void (*)(int, float *, float *);
 
-// The Euclidian Distance kernels are defined like:
-//     __global__ void EuclidianDistanceStridedKernel(int n, float2 *x,
+// The Euclidean Distance kernels are defined like:
+//     __global__ void EuclideanDistanceStridedKernel(int n, float2 *x,
 //                                                    float2 *y,
 //                                                    float *distance);
 // so here is their shared type.

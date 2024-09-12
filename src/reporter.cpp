@@ -1,8 +1,12 @@
 #include "./reporter.h"
 
+#include <stdio.h>
+
+#include <iomanip>
 #include <iostream>
-#include <locale>
 #include <string>
+
+#include "metrics.h"
 
 namespace cuda_optimizer {
 

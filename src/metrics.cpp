@@ -1,5 +1,6 @@
-
 #include "./metrics.h"
+
+#include <iostream>
 
 namespace cuda_optimizer {
 

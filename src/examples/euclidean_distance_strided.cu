@@ -4,11 +4,11 @@
 #include <vector>
 
 #include "../kernels.h"
-#include "euclidian_distance_unstrided.h"
+#include "euclidean_distance_strided.h"
 
 namespace cuda_optimizer {
 
-void EuclidianDistanceUnstrided::Setup() {
+void EuclideanDistanceStrided::Setup() {
   h_x_.resize(n_);
   h_y_.resize(n_);
   h_distance_.resize(n_);
@@ -30,22 +30,22 @@ void EuclidianDistanceUnstrided::Setup() {
   cudaMemcpy(d_y_, h_y_.data(), n_ * sizeof(float2), cudaMemcpyHostToDevice);
 }
 
-void EuclidianDistanceUnstrided::RunKernel(int num_blocks, int block_size) {
-  EuclidianDistanceUnstridedKernel<<<num_blocks, block_size>>>(n_, d_x_, d_y_,
-                                                               d_distance_);
+void EuclideanDistanceStrided::RunKernel(int num_blocks, int block_size) {
+  EuclideanDistanceStridedKernel<<<num_blocks, block_size>>>(n_, d_x_, d_y_,
+                                                             d_distance_);
   cudaDeviceSynchronize();
 
   cudaMemcpy(h_distance_.data(), d_distance_, n_ * sizeof(float),
              cudaMemcpyDeviceToHost);
 }
 
-void EuclidianDistanceUnstrided::Cleanup() {
+void EuclideanDistanceStrided::Cleanup() {
   cudaFree(d_x_);
   cudaFree(d_y_);
   cudaFree(d_distance_);
 }
 
-int EuclidianDistanceUnstrided::CheckResults() {
+int EuclideanDistanceStrided::CheckResults() {
   int num_errors = 0;
   float max_error = 0.0;
   for (int i = 0; i < n_; ++i) {

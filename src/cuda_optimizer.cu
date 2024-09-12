@@ -8,8 +8,8 @@
 #include "examples/add_strided_unmanaged.h"
 #include "examples/add_unstrided_managed.h"
 #include "examples/add_unstrided_unmanaged.h"
-#include "examples/euclidian_distance_strided.h"
-#include "examples/euclidian_distance_unstrided.h"
+#include "examples/euclidean_distance_strided.h"
+#include "examples/euclidean_distance_unstrided.h"
 #include "examples/matrix_multiply.h"
 #include "optimizer.h"
 
@@ -85,12 +85,12 @@ int main(void) {
                                                     max_block_size);
   add_unstrided_unmanaged.Run(4096, 256);
 
-  std::cout << "\n==> Euclidian Distance with stride kernel:" << std::endl;
-  co::EuclidianDistanceStrided dist_strided(max_num_blocks, max_block_size);
+  std::cout << "\n==> Euclidean Distance with stride kernel:" << std::endl;
+  co::EuclideanDistanceStrided dist_strided(max_num_blocks, max_block_size);
   dist_strided.Run(4096, 256);
 
-  std::cout << "\n==> Euclidian Distance without stride kernel:" << std::endl;
-  co::EuclidianDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
+  std::cout << "\n==> Euclidean Distance without stride kernel:" << std::endl;
+  co::EuclideanDistanceUnstrided dist_unstrided(max_num_blocks, max_block_size);
   dist_unstrided.Run(4096, 256);
 
   std::cout << "\n==> Matrix Multiply kernel:" << std::endl;
@@ -134,7 +134,7 @@ int main(void) {
                             &dist_strided);
   DistOptimizer.AddStrategy(
       "Unstrided", co::RunUnstridedSearch<co::DistKernelFunc>, &dist_unstrided);
-  name = "Euclidian Distance kernel, strided vs unstrided";
+  name = "Euclidean Distance kernel, strided vs unstrided";
   optimizer.CreateSet(name, {"Strided", "Unstrided"});
   DistOptimizer.OptimizeSet(name, hardware_info);
 
